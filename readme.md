@@ -78,4 +78,5 @@
 
 final word, this is my own personal wm, it does what i need it to do. . that is all 🖖
 also, i'm pretty basic, i don't really add commits to the code, i just remove the entire thing and reupload. :/
+
 *ty dylan@sowm for the cool git-readme*
