@@ -1,4 +1,4 @@
-rudewm (rude window manager)
+rude.c (rude little window manager)
 -----------------------------
 
 hey, you. yeah, you. welcome to rude. .
