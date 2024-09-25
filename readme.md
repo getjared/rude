@@ -49,8 +49,6 @@ MOD + arrow keys : move windows, it's like tetris but less fun
 
 final words:
 ------------
-this wm is like a cat. it does what it wants, when it wants.
-but it's also kind of cool, so you keep it around.
-and by responsibility, we mean the potential to royally mess up your desktop.
+this wm is my own little project and my main driver, feel free to use it or laugh at it. .
 
 enjoy your rudewm experience. or don't. we're a readme, not a cop.
