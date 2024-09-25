@@ -33,6 +33,7 @@ how to make it yours:
    exec rudewm
 
    *then cross your fingers and startx*
+   
    *pro tip: rudewm doesn't launch apps for you. use sxhkd or something.*
    
 
