@@ -6,17 +6,17 @@ it's a window manager. it manages windows. shocking, right?
 
 what it does:
 -------------
-- tiles your windows (fibonacci & euler style, fancy huh?)
-- gives you 9 workspaces (because 10 would be too mainstream)
-- lets you have gaps between windows (for those who fear commitment)
-- controlled by keyboard (mouse users, we don't judge... much)
-- basic ewmh support (we play nice with others, sometimes)
+- tiles your windows (*fibonacci & euler style, fancy huh?*)
+- gives you 9 workspaces (*because 10 would be too mainstream*)
+- lets you have gaps between windows (*for those who fear commitment*)
+- controlled by keyboard (*mouse users, we don't judge... much*)
+- basic ewmh support (*we play nice with others, sometimes*)
 
 what you need:
 --------------
-- x11 libs (because we're not savages)
-- gcc or any c compiler (preferably one that understands your cursing)
-- make (as in 'make it work', but also the program)
+- x11 libs
+- gcc or any c compiler
+- make
 
 how to make it yours:
 ---------------------
