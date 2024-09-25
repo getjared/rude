@@ -53,4 +53,4 @@ final words:
 ------------
 this wm is my own little project and my main driver, feel free to use it or laugh at it. .
 
-enjoy your rudewm experience. or don't. we're a readme, not a cop.
+please check the docs.md
