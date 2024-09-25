@@ -1,7 +1,7 @@
 rudewm (rude window manager)
 -----------------------------
 
-hey, you. yeah, you. welcome to rudewm.
+hey, you. yeah, you. welcome to rude. .
 it's a 1 file window manager. it manages windows. shocking, right?
 
 what it does:
@@ -22,8 +22,8 @@ how to make it yours:
 ---------------------
 ```
 1. clone it:
-   git clone https://github.com/getjared/rudewm.git
-   cd rudewm
+   git clone https://github.com/getjared/rude.git
+   cd rude
 
 2. build it:
    make
@@ -31,7 +31,7 @@ how to make it yours:
 
 3. use it:
    add this to your .xinitrc:
-   exec rudewm
+   exec rude
 
    then cross your fingers and startx
 ```
