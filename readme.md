@@ -42,10 +42,12 @@ how to make it yours:
 
 how to boss it around:
 ----------------------
+```
 MOD + 1-9        : jump to workspace, like a boss
 MOD + SPACE      : change layout, because change is good
 MOD + q          : kill window, no mercy
 MOD + arrow keys : move windows, it's like tetris but less fun
+```
 
 final words:
 ------------
