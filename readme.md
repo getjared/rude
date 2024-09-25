@@ -1,82 +1,56 @@
+rudewm (rude window manager)
+-----------------------------
 
-# rude.c (*rudewm, rude window mngr*)
+hey, you. yeah, you. welcome to rudewm.
+it's a window manager. it manages windows. shocking, right?
 
-<a href="https://i.imgur.com/Zzo21vU.png"><img src="https://i.imgur.com/Zzo21vU.png" width="43%" align="right"></a>
-<br>
-- master stack tiling *fibonacci* & *euler*
-- workspaces (up to 9)
-- window gaps
-- keyboard focus
-- move tiled windows around
-- basic ewmh support
-<br>
-<a href="https://i.imgur.com/oWQE8vJ.png"><img src="https://i.imgur.com/oWQE8vJ.png" width="43%" align="right"></a>
+what it does:
+-------------
+- tiles your windows (fibonacci & euler style, fancy huh?)
+- gives you 9 workspaces (because 10 would be too mainstream)
+- lets you have gaps between windows (for those who fear commitment)
+- controlled by keyboard (mouse users, we don't judge... much)
+- basic ewmh support (we play nice with others, sometimes)
 
-**requirements**
-- x11 libs
-- gcc or c compiler
-- make
+what you need:
+--------------
+- x11 libs (because we're not savages)
+- gcc or any c compiler (preferably one that understands your cursing)
+- make (as in 'make it work', but also the program)
 
-*note : there is no built-in keybinds for a terminal or anything else really, so make sure you use something like sxhkd*
-
- clone the repository:
-   ```
+how to make it yours:
+---------------------
+1. clone it:
    git clone https://github.com/getjared/rudewm.git
    cd rudewm
 
-   
+2. build it:
    make
-   sudo make install
-   ```
-**config**
-```c
-#define MAX_WORKSPACES 9 // Define how many workspaces you want
-#define MAX_CLIENTS 100 // Max windows per workspace
-#define MOD_KEY Mod4Mask // Default is the SUPER key
-#define WORKSPACE_SWITCH_KEY XK_1 // Keys 1-9
-#define KILL_WINDOW_KEY XK_q // Kill windows with Q
-#define CHANGE_LAYOUT_KEY XK_space // Change the tile layout
-#define MOVE_LEFT_KEY XK_Left
-#define MOVE_RIGHT_KEY XK_Right
-#define MOVE_UP_KEY XK_Up
-#define MOVE_DOWN_KEY XK_Down
-```
-**start it up**
-1. *i do everything from the .xinitrc file, here's mine. .*
-   ```
-   #!/bin/sh
-   
-   # kill wm session with Ctrl + Alt + Backspace
-   setxkbmap -option terminate:ctrl_alt_bksp
-   
-   xrdb -merge $HOME/.Xresources
-   xset b off
-   xset r rate 250 25
-   xsetroot -cursor_name left_ptr
-   
-   # startup programs
-   #picom & # xrender comp
-   sxhkd & # keyboard shortcut daemon
-   
-   # walls
-   feh --bg-scale j/wallpapers/ruder.jpg &
-   
-   # start rude
+   sudo make install   # sudo because we like to live dangerously
+
+3. configure it:
+   edit config.h. go wild. break things. fix them. repeat.
+
+4. use it:
+   add this to your .xinitrc:
    exec rudewm
-   ```
-   
-3. Start X with:
-   ```
-   startx
-   ```
-**basic shortcuts**
-- `MOD + 1-9`: Switch to workspace 1-9
-- `MOD + SPACE`: Change tile layouts
-- `MOD + q`: Kill focused window
-- `MOD + Left/Right/Up/Down`: Move focused window within the tiling layout
 
+   then cross your fingers and startx
 
-final word, this is my own personal wm, it does what i need it to do. . that is all 🖖
-also, i'm pretty basic, i don't really add commits to the code, i just remove the entire thing and reupload. :/
+   pro tip: rudewm doesn't launch apps for you. use sxhkd or something.
+   we're a window manager, not your personal assistant.
 
-*ty dylan@sowm for the cool git-readme*
+how to boss it around:
+----------------------
+MOD + 1-9        : jump to workspace, like a boss
+MOD + SPACE      : change layout, because change is good
+MOD + q          : kill window, no mercy
+MOD + arrow keys : move windows, it's like tetris but less fun
+
+final words:
+------------
+this wm is like a cat. it does what it wants, when it wants.
+but it's also kind of cool, so you keep it around.
+and by responsibility, we mean the potential to royally mess up your desktop.
+
+enjoy your rudewm experience. or don't. we're a readme, not a cop.
