@@ -37,7 +37,7 @@ how to make it yours:
 ```
    
    
-   *pro tip: rudewm doesn't launch apps for you. use sxhkd or something.*
+   *pro tip: rude doesn't launch apps for you. use sxhkd or something.*
    
 
 how to boss it around:
