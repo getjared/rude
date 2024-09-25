@@ -2,7 +2,7 @@ rudewm (rude window manager)
 -----------------------------
 
 hey, you. yeah, you. welcome to rudewm.
-it's a window manager. it manages windows. shocking, right?
+it's a 1 file window manager. it manages windows. shocking, right?
 
 what it does:
 -------------
