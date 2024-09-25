@@ -28,10 +28,7 @@ how to make it yours:
    make
    sudo make install   # sudo because we like to live dangerously
 
-3. configure it:
-   edit config.h. go wild. break things. fix them. repeat.
-
-4. use it:
+3. use it:
    add this to your .xinitrc:
    exec rudewm
 
