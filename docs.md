@@ -180,18 +180,22 @@ rudewm uses a simple makefile for compilation:
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 
 LDFLAGS = -lX11 -lm
-rudewm: rude.c
+
+rude: rude.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
 .PHONY: clean install
+
 clean:
-	rm -f rudewm
-install: rudewm
-	install -D -m 755 rudewm $(DESTDIR)/usr/local/bin/rudewm
+	rm -f rude
+
+install: rude
+	install -D -m 755 rude $(DESTDIR)/usr/local/bin/rude
 ```
 
 to compile and install:
 1. run `make` to compile
-2. run `sudo make install` to install to `/usr/local/bin/rudewm`
+2. run `sudo make install` to install to `/usr/local/bin/rude`
 
 ## error handling
 
