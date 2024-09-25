@@ -6,7 +6,7 @@ it's a window manager. it manages windows. shocking, right?
 
 what it does:
 -------------
-- tiles your windows (*fibonacci & euler style, fancy huh?*)
+- master stack tiling  (*fibonacci & euler style, fancy huh?*)
 - gives you 9 workspaces (*because 10 would be too mainstream*)
 - lets you have gaps between windows (*for those who fear commitment*)
 - controlled by keyboard (*mouse users, we don't judge... much*)
@@ -20,6 +20,7 @@ what you need:
 
 how to make it yours:
 ---------------------
+```
 1. clone it:
    git clone https://github.com/getjared/rudewm.git
    cd rudewm
@@ -33,6 +34,7 @@ how to make it yours:
    exec rudewm
 
    then cross your fingers and startx
+```
    
    
    *pro tip: rudewm doesn't launch apps for you. use sxhkd or something.*
