@@ -32,10 +32,9 @@ how to make it yours:
    add this to your .xinitrc:
    exec rudewm
 
-   **then cross your fingers and startx**
-
-   pro tip: rudewm doesn't launch apps for you. use sxhkd or something.
-   we're a window manager, not your personal assistant.
+   *then cross your fingers and startx*
+   *pro tip: rudewm doesn't launch apps for you. use sxhkd or something.*
+   
 
 how to boss it around:
 ----------------------
