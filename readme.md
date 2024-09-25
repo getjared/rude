@@ -26,13 +26,14 @@ how to make it yours:
 
 2. build it:
    make
-   sudo make install   # sudo because we like to live dangerously
+   sudo make install
 
 3. use it:
    add this to your .xinitrc:
    exec rudewm
 
-   *then cross your fingers and startx*
+   then cross your fingers and startx
+   
    
    *pro tip: rudewm doesn't launch apps for you. use sxhkd or something.*
    
