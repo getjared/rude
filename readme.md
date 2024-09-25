@@ -49,7 +49,7 @@ MOD + q          : kill window, no mercy
 MOD + arrow keys : move windows, it's like tetris but less fun
 ```
 
-<a href="[https://user-images.githubusercontent.com/6799467/66687576-9747c200-ec72-11e9-947d-5b96753eab03.jpg](https://i.imgur.com/vZhbUZ8.png)"><img src="[https://user-images.githubusercontent.com/6799467/66687576-9747c200-ec72-11e9-947d-5b96753eab03.jpg](https://i.imgur.com/vZhbUZ8.png)" width="43%"></a>
+<a href="https://i.imgur.com/vZhbUZ8.png"><img src="https://i.imgur.com/vZhbUZ8.png" width="43%"></a>
 
 final words:
 ------------
