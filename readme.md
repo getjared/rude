@@ -50,6 +50,7 @@ MOD + arrow keys : move windows, it's like tetris but less fun
 ```
 
 <a href="https://i.imgur.com/vZhbUZ8.png"><img src="https://i.imgur.com/vZhbUZ8.png" width="43%"></a>
+<a href="https://i.imgur.com/7JIVGNV.png"><img src="https://i.imgur.com/7JIVGNV.png" width="43%"></a>
 
 final words:
 ------------
