@@ -34,6 +34,7 @@ how to make it yours:
    exec rude
 
    then cross your fingers and startx
+   if you change anything in the source, just cd into the folder, rm -f rude, and make, sudo make install again.
 ```
    
    
