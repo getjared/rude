@@ -47,7 +47,7 @@ MOD + 1-9        : jump to workspace, like a boss
 MOD + SPACE      : change layout, because change is good
 MOD + q          : kill window, no mercy
 MOD + h          : resize to the left
-MOD + k         : resize to the right
+MOD + k          : resize to the right
 MOD + arrow keys : move windows, it's like tetris but less fun
 ```
 
