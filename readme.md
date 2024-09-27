@@ -46,6 +46,8 @@ how to boss it around:
 MOD + 1-9        : jump to workspace, like a boss
 MOD + SPACE      : change layout, because change is good
 MOD + q          : kill window, no mercy
+MOD + h          : resize to the left
+MODE + k         : resize to the right
 MOD + arrow keys : move windows, it's like tetris but less fun
 ```
 
