@@ -20,6 +20,8 @@
 #define MOVE_UP_KEY XK_Up
 #define MOVE_DOWN_KEY XK_Down
 #define CHANGE_LAYOUT_KEY XK_space
+#define RESIZE_DECREASE_KEY XK_h
+#define RESIZE_INCREASE_KEY XK_l
 
 #define LENGTH(X) (sizeof(X) / sizeof(*X))
 #define CLAMP(V, MIN, MAX) ((V) < (MIN) ? (MIN) : (V) > (MAX) ? (MAX) : (V))
@@ -32,8 +34,9 @@ Window root;
 int screen, current_workspace = 0;
 Client clients[MAX_WORKSPACES][MAX_CLIENTS];
 int client_count[MAX_WORKSPACES] = {0};
+float main_window_ratio[MAX_WORKSPACES];
 
-// EWMH atoms
+// ewmh atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
 
 void tile(int screen_w, int screen_h);
@@ -68,8 +71,13 @@ void manage_window(Window w, int workspace, int is_new) {
                 client_count[workspace]++;
                 XSelectInput(dpy, w, EnterWindowMask | FocusChangeMask | StructureNotifyMask);
                 
-                // Set initial size and position off-screen
+                // set initial size and position off-screen
                 XMoveResizeWindow(dpy, w, -1, -1, 1, 1);
+
+                // if this is the second window, adjust main_window_ratio
+                if (client_count[workspace] == 2) {
+                    main_window_ratio[workspace] = 0.5;
+                }
             }
             update_client_list();
             return;
@@ -84,6 +92,15 @@ void unmanage_window(Window w, int workspace) {
             clients[workspace][i].window = None;
             client_count[workspace]--;
             update_client_list();
+            
+            // reset main_window_ratio to full-screen if all windows are closed
+            if (client_count[workspace] == 0) {
+                main_window_ratio[workspace] = 1.0; // Reset to full-screen
+            } else if (client_count[workspace] == 1) {
+                // if only one window remains, make it full-screen
+                main_window_ratio[workspace] = 1.0;
+            }
+            
             return;
         }
     }
@@ -104,19 +121,39 @@ void tile(int screen_w, int screen_h) {
     XWindowChanges wc;
     unsigned int value_mask = CWX | CWY | CWWidth | CWHeight;
 
+    // if there's only one window or main_window_ratio is very close to 1, make it full-screen
+    if (n == 1 || main_window_ratio[current_workspace] > 0.99) {
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[current_workspace][i].window != None) {
+                Client *c = &clients[current_workspace][i];
+                c->x = GAP_SIZE;
+                c->y = GAP_SIZE;
+                c->w = screen_w - 2 * GAP_SIZE;
+                c->h = screen_h - 2 * GAP_SIZE;
+                wc.x = c->x; wc.y = c->y; wc.width = c->w; wc.height = c->h;
+                XConfigureWindow(dpy, c->window, value_mask, &wc);
+                break;
+            }
+        }
+        return;
+    }
+
+    // if there are multiple windows, use the tiling layout
+    int main_w = (int)((screen_w - 3 * GAP_SIZE) * main_window_ratio[current_workspace]);
+
     for (int i = 0, active = 0; i < MAX_CLIENTS && active < n; i++) {
         if (clients[current_workspace][i].window != None) {
             Client *c = &clients[current_workspace][i];
             if (active == 0) {
                 c->x = GAP_SIZE;
                 c->y = GAP_SIZE;
-                c->w = (n == 1) ? (screen_w - 2 * GAP_SIZE) : ((screen_w - 3 * GAP_SIZE) / 2);
+                c->w = main_w;
                 c->h = screen_h - 2 * GAP_SIZE;
             } else {
                 int slave_h = (screen_h - (n * GAP_SIZE)) / (n - 1);
-                c->x = (screen_w + GAP_SIZE) / 2;
+                c->x = main_w + 2 * GAP_SIZE;
                 c->y = GAP_SIZE + (active - 1) * (slave_h + GAP_SIZE);
-                c->w = (screen_w - 3 * GAP_SIZE) / 2;
+                c->w = screen_w - main_w - 3 * GAP_SIZE;
                 c->h = slave_h;
             }
             wc.x = c->x; wc.y = c->y; wc.width = c->w; wc.height = c->h;
@@ -145,7 +182,7 @@ void fibonacci(int screen_w, int screen_h) {
             if (active == 0) {
                 c->x = x;
                 c->y = y;
-                c->w = w / 2 - GAP_SIZE / 2;
+                c->w = (int)(w * main_window_ratio[current_workspace]);
                 c->h = h;
                 next_x = x + c->w + GAP_SIZE;
                 next_w = w - c->w - GAP_SIZE;
@@ -153,14 +190,14 @@ void fibonacci(int screen_w, int screen_h) {
                 c->x = next_x;
                 c->y = y;
                 c->w = next_w;
-                c->h = h / 2 - GAP_SIZE / 2;
+                c->h = (int)(h * main_window_ratio[current_workspace]);
                 next_y = y + c->h + GAP_SIZE;
                 next_h = h - c->h - GAP_SIZE;
             } else {
                 if (active % 2 == 0) {
                     c->x = next_x;
                     c->y = next_y;
-                    c->w = next_w / 2 - GAP_SIZE / 2;
+                    c->w = (int)(next_w * main_window_ratio[current_workspace]);
                     c->h = next_h;
                     next_x = c->x + c->w + GAP_SIZE;
                     next_w = next_w - c->w - GAP_SIZE;
@@ -168,7 +205,7 @@ void fibonacci(int screen_w, int screen_h) {
                     c->x = next_x;
                     c->y = next_y;
                     c->w = next_w;
-                    c->h = next_h / 2 - GAP_SIZE / 2;
+                    c->h = (int)(next_h * main_window_ratio[current_workspace]);
                     next_y = c->y + c->h + GAP_SIZE;
                     next_h = next_h - c->h - GAP_SIZE;
                 }
@@ -187,37 +224,37 @@ void euler(int screen_w, int screen_h) {
 
     int center_x = screen_w / 2;
     int center_y = screen_h / 2;
-    int central_size = fmin(screen_w, screen_h) / 3;  // Size of the central window
-    int gap = GAP_SIZE;  // Use your defined gap size
+    int central_size = (int)(fmin(screen_w, screen_h) * main_window_ratio[current_workspace]);
+    int gap = GAP_SIZE;
 
-    // Initial radius is now further from the central window
     int initial_radius = central_size / 2 + gap * 3;
 
-    // Configure the central window
+    XWindowChanges wc;
+    unsigned int value_mask = CWX | CWY | CWWidth | CWHeight;
+
+    // configure the central window
     if (n > 0 && clients[current_workspace][0].window != None) {
-        XWindowChanges wc;
         wc.x = center_x - central_size / 2;
         wc.y = center_y - central_size / 2;
         wc.width = central_size;
         wc.height = central_size;
-        XConfigureWindow(dpy, clients[current_workspace][0].window, CWX | CWY | CWWidth | CWHeight, &wc);
+        XConfigureWindow(dpy, clients[current_workspace][0].window, value_mask, &wc);
     }
 
-    // Configure surrounding windows with adjusted sizes and dynamic radius
+    // configure surrounding windows
     for (int i = 1; i < n && i < MAX_CLIENTS; i++) {
         if (clients[current_workspace][i].window != None) {
-            int radius = initial_radius + (i - 1) * gap;  // Increase radius incrementally
-            double angle = 2 * M_PI * (i - 1) / (n - 1);  // Distribute windows around the circle
-            int win_x = center_x + (int)(radius * cos(angle)) - central_size / 5;  // Increase the size slightly
-            int win_y = center_y + (int)(radius * sin(angle)) - central_size / 5;
-            int win_size = central_size / 2;  // Increase the size of the surrounding windows
+            int radius = initial_radius + (i - 1) * gap;
+            double angle = 2 * M_PI * (i - 1) / (n - 1);
+            int win_size = central_size / 2;
+            int win_x = center_x + (int)(radius * cos(angle)) - win_size / 2;
+            int win_y = center_y + (int)(radius * sin(angle)) - win_size / 2;
 
-            XWindowChanges wc;
             wc.x = win_x;
             wc.y = win_y;
             wc.width = win_size;
             wc.height = win_size;
-            XConfigureWindow(dpy, clients[current_workspace][i].window, CWX | CWY | CWWidth | CWHeight, &wc);
+            XConfigureWindow(dpy, clients[current_workspace][i].window, value_mask, &wc);
         }
     }
 }
@@ -310,6 +347,17 @@ void move_focused_window(int direction) {
     }
 }
 
+void resize_main_window(int direction) {
+    float resize_step = 0.05; // 5% step
+    if (main_window_ratio[current_workspace] > 0.99 && direction < 0) {
+        // transitioning from full-screen to split
+        main_window_ratio[current_workspace] = 0.6;  // start with a 60/40 split when coming out of full-screen
+    } else {
+        main_window_ratio[current_workspace] = CLAMP(main_window_ratio[current_workspace] + (direction > 0 ? resize_step : -resize_step), 0.1, 1.0);
+    }
+    arrange();
+}
+
 void cleanup(void) {
     XUngrabKey(dpy, AnyKey, AnyModifier, root);
     XCloseDisplay(dpy);
@@ -397,8 +445,15 @@ int main(void) {
     XGrabKey(dpy, XKeysymToKeycode(dpy, MOVE_UP_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, MOVE_DOWN_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, CHANGE_LAYOUT_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, RESIZE_DECREASE_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, RESIZE_INCREASE_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
 
     init_ewmh();
+
+    // initialize main_window_ratio for each workspace
+    for (int i = 0; i < MAX_WORKSPACES; i++) {
+        main_window_ratio[i] = 1.0;
+    }
 
     XEvent ev;
     while (1) {
@@ -424,6 +479,10 @@ int main(void) {
                 move_focused_window(keysym);
             } else if (keysym == CHANGE_LAYOUT_KEY) {
                 switch_layout();
+            } else if (keysym == RESIZE_DECREASE_KEY) {
+                resize_main_window(-1);
+            } else if (keysym == RESIZE_INCREASE_KEY) {
+                resize_main_window(1);
             }
         }
     }
