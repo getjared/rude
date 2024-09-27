@@ -36,7 +36,7 @@ Client clients[MAX_WORKSPACES][MAX_CLIENTS];
 int client_count[MAX_WORKSPACES] = {0};
 float main_window_ratio[MAX_WORKSPACES];
 
-// ewmh atoms
+// EWMH atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
 
 void tile(int screen_w, int screen_h);
@@ -71,10 +71,10 @@ void manage_window(Window w, int workspace, int is_new) {
                 client_count[workspace]++;
                 XSelectInput(dpy, w, EnterWindowMask | FocusChangeMask | StructureNotifyMask);
                 
-                // set initial size and position off-screen
+                // Set initial size and position off-screen
                 XMoveResizeWindow(dpy, w, -1, -1, 1, 1);
 
-                // if this is the second window, adjust main_window_ratio
+                // If this is the second window, adjust main_window_ratio
                 if (client_count[workspace] == 2) {
                     main_window_ratio[workspace] = 0.5;
                 }
@@ -93,11 +93,11 @@ void unmanage_window(Window w, int workspace) {
             client_count[workspace]--;
             update_client_list();
             
-            // reset main_window_ratio to full-screen if all windows are closed
+            // Reset main_window_ratio to full-screen if all windows are closed
             if (client_count[workspace] == 0) {
                 main_window_ratio[workspace] = 1.0; // Reset to full-screen
             } else if (client_count[workspace] == 1) {
-                // if only one window remains, make it full-screen
+                // If only one window remains, make it full-screen
                 main_window_ratio[workspace] = 1.0;
             }
             
@@ -121,7 +121,7 @@ void tile(int screen_w, int screen_h) {
     XWindowChanges wc;
     unsigned int value_mask = CWX | CWY | CWWidth | CWHeight;
 
-    // if there's only one window or main_window_ratio is very close to 1, make it full-screen
+    // If there's only one window or main_window_ratio is very close to 1, make it full-screen
     if (n == 1 || main_window_ratio[current_workspace] > 0.99) {
         for (int i = 0; i < MAX_CLIENTS; i++) {
             if (clients[current_workspace][i].window != None) {
@@ -138,7 +138,7 @@ void tile(int screen_w, int screen_h) {
         return;
     }
 
-    // if there are multiple windows, use the tiling layout
+    // If there are multiple windows, use the tiling layout
     int main_w = (int)((screen_w - 3 * GAP_SIZE) * main_window_ratio[current_workspace]);
 
     for (int i = 0, active = 0; i < MAX_CLIENTS && active < n; i++) {
@@ -232,7 +232,7 @@ void euler(int screen_w, int screen_h) {
     XWindowChanges wc;
     unsigned int value_mask = CWX | CWY | CWWidth | CWHeight;
 
-    // configure the central window
+    // Configure the central window
     if (n > 0 && clients[current_workspace][0].window != None) {
         wc.x = center_x - central_size / 2;
         wc.y = center_y - central_size / 2;
@@ -241,7 +241,7 @@ void euler(int screen_w, int screen_h) {
         XConfigureWindow(dpy, clients[current_workspace][0].window, value_mask, &wc);
     }
 
-    // configure surrounding windows
+    // Configure surrounding windows
     for (int i = 1; i < n && i < MAX_CLIENTS; i++) {
         if (clients[current_workspace][i].window != None) {
             int radius = initial_radius + (i - 1) * gap;
@@ -350,8 +350,8 @@ void move_focused_window(int direction) {
 void resize_main_window(int direction) {
     float resize_step = 0.05; // 5% step
     if (main_window_ratio[current_workspace] > 0.99 && direction < 0) {
-        // transitioning from full-screen to split
-        main_window_ratio[current_workspace] = 0.6;  // start with a 60/40 split when coming out of full-screen
+        // Transitioning from full-screen to split
+        main_window_ratio[current_workspace] = 0.6;  // Start with a 60/40 split when coming out of full-screen
     } else {
         main_window_ratio[current_workspace] = CLAMP(main_window_ratio[current_workspace] + (direction > 0 ? resize_step : -resize_step), 0.1, 1.0);
     }
@@ -450,7 +450,7 @@ int main(void) {
 
     init_ewmh();
 
-    // initialize main_window_ratio for each workspace
+    // Initialize main_window_ratio for each workspace
     for (int i = 0; i < MAX_WORKSPACES; i++) {
         main_window_ratio[i] = 1.0;
     }
