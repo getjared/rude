@@ -1,12 +1,12 @@
 rude.c (rude little window manager)
 -----------------------------
 
-hey, you. yeah, you. welcome to rude. .
+hey, you. yeah, you. welcome to rude.
 it's a 1 file window manager. it manages windows. shocking, right?
 
 what it does:
 -------------
-- master stack tiling  (*fibonacci & euler style, fancy huh?*)
+- master stack tiling (*because who doesn't love a good stack?*)
 - gives you 9 workspaces (*because 10 would be too mainstream*)
 - lets you have gaps between windows (*for those who fear commitment*)
 - controlled by keyboard (*mouse users, we don't judge... much*)
@@ -36,27 +36,20 @@ how to make it yours:
    then cross your fingers and startx
    if you change anything in the source, just cd into the folder, rm -f rude, and make, sudo make install again.
 ```
-   
-   
-   *pro tip: rude doesn't launch apps for you. use sxhkd or something.*
-   
+
+*pro tip: rude doesn't launch apps for you. use sxhkd or something.*
 
 how to boss it around:
 ----------------------
 ```
-MOD + 1-9        : jump to workspace, like a boss
-MOD + SPACE      : change layout, because change is good
-MOD + q          : kill window, no mercy
-MOD + h          : resize to the left
-MOD + l          : resize to the right
-MOD + arrow keys : move windows, it's like tetris but less fun
+MOD + 1-9                : jump to workspace, like a boss
+MOD + q                  : kill window, no mercy
+MOD + LEFT/RIGHT         : move windows left/right, it's like tetris but less fun
+MOD + SHIFT + LEFT/RIGHT : resize main window, for when size matters
 ```
-
-<a href="https://i.imgur.com/vZhbUZ8.png"><img src="https://i.imgur.com/vZhbUZ8.png" width="43%"></a>
-<a href="https://i.imgur.com/7JIVGNV.png"><img src="https://i.imgur.com/7JIVGNV.png" width="43%"></a>
 
 final words:
 ------------
-this wm is my own little project and my main driver, feel free to use it or laugh at it. .
+this wm is my own little project and my main driver. feel free to use it or laugh at it.
 
-please check the docs.md
+please check the docs.md for more details.
