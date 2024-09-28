@@ -19,8 +19,9 @@ int screen, current_workspace = 0;
 Client clients[MAX_WORKSPACES][MAX_CLIENTS];
 int client_count[MAX_WORKSPACES] = {0};
 float main_window_ratio[MAX_WORKSPACES];
+int last_moved_window_index = 0;
 
-// EWMH atoms
+// ewmh atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
 ```
 
@@ -31,6 +32,7 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 - `clients`: 2d array of managed windows for each workspace.
 - `client_count`: number of clients in each workspace.
 - `main_window_ratio`: array of ratios for the main window size in each workspace.
+- `last_moved_window_index`: keeps track of the last moved window for consistent movement.
 - `ewmh atoms`: used for ewmh support and communication with other x11 clients.
 
 ### key functions
@@ -42,24 +44,15 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
    - updates the client list for ewmh compliance.
    - initially positions new windows off-screen to prevent flashing.
    - adjusts the main_window_ratio when adding a second window.
-   - parameters:
-     - `w`: window to manage
-     - `workspace`: workspace index
-     - `is_new`: flag indicating if it's a new window
 
 2. `void unmanage_window(Window w, int workspace)`
    - removes a window from the specified workspace.
    - updates the client list for ewmh compliance.
    - resets main_window_ratio to full-screen if all windows are closed.
-   - parameters:
-     - `w`: window to unmanage
-     - `workspace`: workspace index
 
 3. `void focus_window(Window w)`
    - sets input focus to the specified window and raises it.
    - updates the active window for ewmh compliance.
-   - parameters:
-     - `w`: window to focus
 
 #### layouts
 
@@ -67,53 +60,27 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
    - arranges windows in a tile layout (main window on left, stack on right).
    - uses the workspace-specific main_window_ratio for sizing.
    - handles full-screen case when only one window or ratio is close to 1.
-   - parameters:
-     - `screen_w`: screen width
-     - `screen_h`: screen height
 
-2. `void fibonacci(int screen_w, int screen_h)`
-   - arranges windows in a fibonacci spiral.
-   - uses the workspace-specific main_window_ratio for sizing.
-   - parameters:
-     - `screen_w`: screen width
-     - `screen_h`: screen height
-
-3. `void euler(int screen_w, int screen_h)`
-   - arranges windows in an euler layout (central window with surrounding windows).
-   - uses the workspace-specific main_window_ratio for central window sizing.
-   - parameters:
-     - `screen_w`: screen width
-     - `screen_h`: screen height
-
-4. `void arrange(void)`
+2. `void arrange(void)`
    - applies the current layout to the current workspace.
-
-5. `void switch_layout(void)`
-   - cycles to the next available layout.
 
 #### workspace management
 
 1. `void switch_workspace(int new_workspace)`
    - switches to the specified workspace, unmapping windows from the current workspace and mapping windows in the new workspace.
    - updates the current desktop for ewmh compliance.
-   - parameters:
-     - `new_workspace`: index of the workspace to switch to
 
 #### window operations
 
 1. `void kill_focused_window(void)`
    - attempts to close the currently focused window, first by sending a delete message, then by force if necessary.
 
-2. `void move_focused_window(int direction)`
+2. `void move_window(int direction)`
    - moves the focused window in the specified direction within the current layout.
-   - parameters:
-     - `direction`: direction to move (left, right, up, down)
 
 3. `void resize_main_window(int direction)`
    - resizes the main window by adjusting the main_window_ratio.
    - handles transition from full-screen to split layout.
-   - parameters:
-     - `direction`: positive for increase, negative for decrease
 
 ### ewmh support functions
 
@@ -128,8 +95,6 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 
 4. `void update_net_active_window(Window w)`
    - updates the currently active window for ewmh compliance.
-   - parameters:
-     - `w`: window to set as active
 
 ### main loop
 
@@ -138,45 +103,11 @@ the `main()` function sets up the x11 environment, grabs keys for shortcuts, ini
 - workspace switching
 - window killing
 - window movement
-- layout switching
 - window resizing
-
-```c
-int main(void) {
-    // ... [initialization code] ...
-
-    init_ewmh();
-
-    // Initialize main_window_ratio for each workspace
-    for (int i = 0; i < MAX_WORKSPACES; i++) {
-        main_window_ratio[i] = 1.0;
-    }
-
-    XEvent ev;
-    while (1) {
-        XNextEvent(dpy, &ev);
-        if (ev.type == MapRequest) {
-            manage_window(ev.xmaprequest.window, current_workspace, 1);
-            arrange();
-            XMapWindow(dpy, ev.xmaprequest.window);
-            focus_window(ev.xmaprequest.window);
-        } else if (ev.type == UnmapNotify || ev.type == DestroyNotify) {
-            unmanage_window(ev.type == UnmapNotify ? ev.xunmap.window : ev.xdestroywindow.window, current_workspace);
-            arrange();
-        } else if (ev.type == EnterNotify) {
-            focus_window(ev.xcrossing.window);
-        } else if (ev.type == KeyPress) {
-            // ... [key event handling] ...
-        }
-    }
-
-    return 0;
-}
-```
 
 ## customization
 
-key bindings and other parameters are defined as preprocessor macros at the top of the file. modify these to customize the behavior of rudewm:
+key bindings and other parameters are defined as preprocessor macros at the top of the file. modify these to customize the behavior of rude:
 
 ```c
 #define MAX_WORKSPACES 9
@@ -187,16 +118,14 @@ key bindings and other parameters are defined as preprocessor macros at the top 
 #define KILL_WINDOW_KEY XK_q
 #define MOVE_LEFT_KEY XK_Left
 #define MOVE_RIGHT_KEY XK_Right
-#define MOVE_UP_KEY XK_Up
-#define MOVE_DOWN_KEY XK_Down
 #define CHANGE_LAYOUT_KEY XK_space
-#define RESIZE_DECREASE_KEY XK_h
-#define RESIZE_INCREASE_KEY XK_l
+#define RESIZE_DECREASE_KEY XK_Left
+#define RESIZE_INCREASE_KEY XK_Right
 ```
 
 ## compilation and installation
 
-rudewm uses a simple makefile for compilation:
+rude uses a simple makefile for compilation:
 
 ```makefile
 CC = gcc
@@ -221,7 +150,7 @@ to compile and install:
 
 ## error handling
 
-rudewm uses a custom x error handler (`xerror`) to ignore `badwindow` errors and log other x11 errors.
+rude uses a custom x error handler (`xerror`) to ignore `badwindow` errors and log other x11 errors.
 
 ## cleanup
 
@@ -229,7 +158,7 @@ the `cleanup` function is registered with `atexit` to ensure proper x11 resource
 
 ## ewmh compliance
 
-rudewm supports basic ewmh (extended window manager hints) compliance, which allows it to interact better with status bars and other x11 clients. the following ewmh properties are supported:
+rude supports basic ewmh (extended window manager hints) compliance, which allows it to interact better with status bars and other x11 clients. the following ewmh properties are supported:
 
 - `_NET_SUPPORTED`: list of supported ewmh atoms
 - `_NET_CLIENT_LIST`: list of managed windows
@@ -251,7 +180,7 @@ to prevent brief window flash in the top-left corner when creating new windows:
 
 - the first window in each workspace opens in full-screen mode (minus gaps).
 - when a second window is added, the layout transitions to a split view with a default 50/50 ratio.
-- the main window can be resized using mod+h (decrease) and mod+l (increase).
+- the main window can be resized using mod+shift+left (decrease) and mod+shift+right (increase).
 - each workspace maintains its own main_window_ratio, preserving layouts when switching workspaces.
 - closing all windows in a workspace resets its layout to full-screen for the next window.
 
@@ -259,18 +188,15 @@ to prevent brief window flash in the top-left corner when creating new windows:
 
 - `mod + 1-9`: switch to workspace 1-9
 - `mod + q`: kill focused window
-- `mod + left/right/up/down`: move focused window
-- `mod + space`: switch layout
-- `mod + h`: decrease main window size
-- `mod + l`: increase main window size
+- `mod + left/right`: move focused window left/right
+- `mod + shift + left`: decrease main window size
+- `mod + shift + right`: increase main window size
 
 ## layouts
 
 1. tile: main window on the left, stack on the right
-2. fibonacci: windows arranged in a fibonacci spiral
-3. euler: central window with surrounding windows in a circular arrangement
 
-each layout respects the workspace-specific main_window_ratio for sizing windows.
+the layout respects the workspace-specific main_window_ratio for sizing windows.
 
 ## acknowledgments
 
