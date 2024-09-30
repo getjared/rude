@@ -55,4 +55,4 @@ this wm is my own little project and my main driver. feel free to use it or laug
 
 please check the docs.md for more details (it's still a work in progress but it's getting there. .)
 
-credits to tinywm & niri.
+credits for inspiration to tinywm & niri.
