@@ -6,7 +6,7 @@ it's a 1 file window manager. it manages windows. shocking, right?
 
 what it does:
 -------------
-- master stack tiling (*because who doesn't love a good stack?*)
+- infinite horizontal grid (*because who doesn't love niri?*)
 - gives you 9 workspaces (*because 10 would be too mainstream*)
 - lets you have gaps between windows (*for those who fear commitment*)
 - controlled by keyboard (*mouse users, we don't judge... much*)
@@ -34,7 +34,7 @@ how to make it yours:
    exec rude
 
    then cross your fingers and startx
-   if you change anything in the source, just cd into the folder, rm -f rude, and make, sudo make install again.
+   if you change anything in the config, just cd into the folder, rm -f rude, and make, sudo make install again.
 ```
 
 *pro tip: rude doesn't launch apps for you. use sxhkd or something.*
@@ -42,14 +42,15 @@ how to make it yours:
 how to boss it around:
 ----------------------
 ```
-MOD + 1-9                : jump to workspace, like a boss
-MOD + q                  : kill window, no mercy
-MOD + LEFT/RIGHT         : move windows left/right, it's like tetris but less fun
-MOD + SHIFT + LEFT/RIGHT : resize main window, for when size matters
+mOD + 1-9                : jump to workspace, like a boss
+mOD + q                  : kill window, no mercy
+mOD + LEFT/RIGHT         : move windows left/right, it's like tetris but less fun
+mOD + SHIFT + LEFT/RIGHT : resize main window, for when size matters
+mod + h/l                : scroll through the grid. .
 ```
 
 final words:
 ------------
 this wm is my own little project and my main driver. feel free to use it or laugh at it.
 
-please check the docs.md for more details.
+please check the docs.md for more details (it's still a work in progress but it's getting there. .)
