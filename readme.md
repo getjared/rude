@@ -54,3 +54,5 @@ final words:
 this wm is my own little project and my main driver. feel free to use it or laugh at it.
 
 please check the docs.md for more details (it's still a work in progress but it's getting there. .)
+
+credits to tinywm & niri.
