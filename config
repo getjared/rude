@@ -1,0 +1,27 @@
+# General Settings
+max_workspaces=9
+max_clients=100
+gaps=35
+
+# Column Settings
+initial_column_size=800
+step_size=50
+min_column_size=300
+max_column_size=2000
+
+# Hotkeys (Use X11 key symbols)
+mod_key=Mod4
+workspace_switch_keys=1,2,3,4,5,6,7,8,9
+kill_window_key=q
+move_left_key=Left
+move_right_key=Right
+change_layout_key=space
+scroll_left_key=h
+scroll_right_key=l
+resize_left_key=Left
+resize_right_key=Right
+
+# Application-Specific Rules
+[rules]
+firefox=1800
+term=500
