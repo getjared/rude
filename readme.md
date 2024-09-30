@@ -45,7 +45,7 @@ how to boss it around:
 mOD + 1-9                : jump to workspace, like a boss
 mOD + q                  : kill window, no mercy
 mOD + LEFT/RIGHT         : move windows left/right, it's like tetris but less fun
-mOD + SHIFT + LEFT/RIGHT : resize main window, for when size matters
+mOD + SHIFT + LEFT/RIGHT : resize focused window, for when size matters
 mod + h/l                : scroll through the grid. .
 ```
 
