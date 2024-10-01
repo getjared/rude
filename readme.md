@@ -48,8 +48,27 @@ MOD + LEFT/RIGHT         : move windows left/right, it's like tetris but less fu
 MOD + SHIFT + LEFT/RIGHT : resize main window, for when size matters
 ```
 
+customization:
+--------------
+want to make rude your own? check out these macros at the top of rude.c:
+
+```c
+#define MAX_WORKSPACES 9
+#define MAX_CLIENTS 100
+#define GAP_SIZE 45
+#define MOD_KEY Mod4Mask
+#define WORKSPACE_SWITCH_KEY XK_1
+#define KILL_WINDOW_KEY XK_q
+#define MOVE_LEFT_KEY XK_Left
+#define MOVE_RIGHT_KEY XK_Right
+#define RESIZE_DECREASE_KEY XK_Left
+#define RESIZE_INCREASE_KEY XK_Right
+```
+
+tweak 'em to your heart's content. just remember to recompile after.
+
 final words:
 ------------
-this wm is my own little project and my main driver. feel free to use it or laugh at it.
+this wm is my own little project and my main driver. feel free to use it, laugh at it, or send me a virtual high five.
 
-please check the docs.md for more details.
+check out docs.md for the nitty-gritty details. or don't. i'm not your boss.
