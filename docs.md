@@ -4,11 +4,9 @@
 
 ```c
 typedef struct { Window window; int x, y, w, h; } Client;
-typedef struct { const char *name; void (*arrange)(int, int); } Layout;
 ```
 
 - `client`: represents a managed window with its position and size.
-- `layout`: represents a tiling layout with a name and an arrangement function.
 
 ### global variables
 
@@ -118,7 +116,6 @@ key bindings and other parameters are defined as preprocessor macros at the top 
 #define KILL_WINDOW_KEY XK_q
 #define MOVE_LEFT_KEY XK_Left
 #define MOVE_RIGHT_KEY XK_Right
-#define CHANGE_LAYOUT_KEY XK_space
 #define RESIZE_DECREASE_KEY XK_Left
 #define RESIZE_INCREASE_KEY XK_Right
 ```
@@ -197,7 +194,3 @@ to prevent brief window flash in the top-left corner when creating new windows:
 1. tile: main window on the left, stack on the right
 
 the layout respects the workspace-specific main_window_ratio for sizing windows.
-
-## acknowledgments
-
-rude is inspired by other minimal window managers like dwm, sowm & tinywm, with a focus on simplicity and efficiency.
