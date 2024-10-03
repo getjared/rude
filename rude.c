@@ -21,23 +21,21 @@
 #define MOVE_RIGHT_KEY XK_Right
 #define RESIZE_DECREASE_KEY XK_Left
 #define RESIZE_INCREASE_KEY XK_Right
-
 #define SHIFT_MOD ShiftMask
 
 #define CLAMP(V, MIN, MAX) ((V) < (MIN) ? (MIN) : (V) > (MAX) ? (MAX) : (V))
 
 typedef struct { Window window; int x, y, w, h; } Client;
+typedef struct { Client *clients; int client_count; float main_window_ratio; int is_initialized; } Workspace;
 
 Display *dpy;
 Window root;
 int screen, current_workspace = 0;
-Client clients[MAX_WORKSPACES][MAX_CLIENTS];
-int client_count[MAX_WORKSPACES] = {0};
-float main_window_ratio[MAX_WORKSPACES];
+Workspace *workspaces;
 int last_moved_window_index = 0;
 int should_warp_pointer = 0;
 
-// EWMH atoms
+// ewmh atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
 
 void arrange(void);
@@ -46,6 +44,8 @@ void init_ewmh(void);
 void update_client_list(void);
 void update_net_current_desktop(void);
 void update_net_active_window(Window w);
+void init_workspace(int workspace);
+void warp_pointer_to_window(Window w);
 
 int xerror(Display *dpy, XErrorEvent *ee) {
     (void)dpy;
@@ -54,16 +54,31 @@ int xerror(Display *dpy, XErrorEvent *ee) {
     return 0;
 }
 
+void init_workspace(int workspace) {
+    if (workspace < 0 || workspace >= MAX_WORKSPACES) return;
+    if (workspaces[workspace].is_initialized) return;
+
+    workspaces[workspace].clients = calloc(MAX_CLIENTS, sizeof(Client));
+    workspaces[workspace].client_count = 0;
+    workspaces[workspace].main_window_ratio = 1.0;
+    workspaces[workspace].is_initialized = 1;
+}
+
 void manage_window(Window w, int workspace, int is_new) {
-    if (workspace < 0 || workspace >= MAX_WORKSPACES || client_count[workspace] >= MAX_CLIENTS) return;
-    int slot = client_count[workspace];
-    clients[workspace][slot].window = w;
+    if (workspace < 0 || workspace >= MAX_WORKSPACES) return;
+    init_workspace(workspace);
+    
+    Workspace *ws = &workspaces[workspace];
+    if (ws->client_count >= MAX_CLIENTS) return;
+    
+    int slot = ws->client_count;
+    ws->clients[slot].window = w;
     if (is_new) {
-        client_count[workspace]++;
+        ws->client_count++;
         XSelectInput(dpy, w, EnterWindowMask | FocusChangeMask | StructureNotifyMask);
         XMoveResizeWindow(dpy, w, -1, -1, 1, 1);
-        if (client_count[workspace] == 2) {
-            main_window_ratio[workspace] = 0.5;
+        if (ws->client_count == 2) {
+            ws->main_window_ratio = 0.5;
         }
         should_warp_pointer = 1;
     }
@@ -72,17 +87,33 @@ void manage_window(Window w, int workspace, int is_new) {
 
 void unmanage_window(Window w, int workspace) {
     if (workspace < 0 || workspace >= MAX_WORKSPACES) return;
-    for (int i = 0; i < client_count[workspace]; i++) {
-        if (clients[workspace][i].window == w) {
-            for (int j = i; j < client_count[workspace] - 1; j++) {
-                clients[workspace][j] = clients[workspace][j + 1];
+    if (!workspaces[workspace].is_initialized) return;
+
+    Workspace *ws = &workspaces[workspace];
+    for (int i = 0; i < ws->client_count; i++) {
+        if (ws->clients[i].window == w) {
+            for (int j = i; j < ws->client_count - 1; j++) {
+                ws->clients[j] = ws->clients[j + 1];
             }
-            client_count[workspace]--;
+            ws->client_count--;
             update_client_list();
-            if (client_count[workspace] <= 1) {
-                main_window_ratio[workspace] = 1.0;
+            if (ws->client_count <= 1) {
+                ws->main_window_ratio = 1.0;
             }
             return;
+        }
+    }
+}
+
+void focus_window(Window w) {
+    if (w != None && w != root) {
+        XWindowChanges wc = {.stack_mode = Above};
+        XConfigureWindow(dpy, w, CWStackMode, &wc);
+        XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
+        update_net_active_window(w);
+        if (should_warp_pointer) {
+            warp_pointer_to_window(w);
+            should_warp_pointer = 0;
         }
     }
 }
@@ -101,29 +132,16 @@ void warp_pointer_to_window(Window w) {
     }
 }
 
-void focus_window(Window w) {
-    if (w != None && w != root) {
-        XWindowChanges wc = {.stack_mode = Above};
-        XConfigureWindow(dpy, w, CWStackMode, &wc);
-        XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
-        update_net_active_window(w);
-        if (should_warp_pointer) {
-            warp_pointer_to_window(w);
-            should_warp_pointer = 0;
-        }
-    }
-}
-
-
 void tile(int screen_w, int screen_h) {
-    int n = client_count[current_workspace];
+    Workspace *ws = &workspaces[current_workspace];
+    int n = ws->client_count;
     if (n == 0) return;
 
     XWindowChanges wc;
     unsigned int value_mask = CWX | CWY | CWWidth | CWHeight;
 
-    if (n == 1 || main_window_ratio[current_workspace] > 0.99) {
-        Client *c = &clients[current_workspace][0];
+    if (n == 1 || ws->main_window_ratio > 0.99) {
+        Client *c = &ws->clients[0];
         c->x = GAP_SIZE;
         c->y = GAP_SIZE;
         c->w = screen_w - 2 * GAP_SIZE;
@@ -133,10 +151,10 @@ void tile(int screen_w, int screen_h) {
         return;
     }
 
-    int main_w = (int)((screen_w - 3 * GAP_SIZE) * main_window_ratio[current_workspace]);
+    int main_w = (int)((screen_w - 3 * GAP_SIZE) * ws->main_window_ratio);
 
     for (int i = 0; i < n; i++) {
-        Client *c = &clients[current_workspace][i];
+        Client *c = &ws->clients[i];
         if (i == 0) {
             c->x = GAP_SIZE;
             c->y = GAP_SIZE;
@@ -162,18 +180,28 @@ void arrange(void) {
 
 void switch_workspace(int new_workspace) {
     if (new_workspace == current_workspace || new_workspace < 0 || new_workspace >= MAX_WORKSPACES) return;
-    for (int i = 0; i < client_count[current_workspace]; i++) {
-        XUnmapWindow(dpy, clients[current_workspace][i].window);
+    
+    // unmap windows in the current workspace
+    if (workspaces[current_workspace].is_initialized) {
+        for (int i = 0; i < workspaces[current_workspace].client_count; i++) {
+            XUnmapWindow(dpy, workspaces[current_workspace].clients[i].window);
+        }
     }
-    for (int i = 0; i < client_count[new_workspace]; i++) {
-        XMapWindow(dpy, clients[new_workspace][i].window);
+
+    // initialize the new workspace if it hasn't been used yet
+    init_workspace(new_workspace);
+
+    // map windows in the new workspace
+    for (int i = 0; i < workspaces[new_workspace].client_count; i++) {
+        XMapWindow(dpy, workspaces[new_workspace].clients[i].window);
     }
+
     current_workspace = new_workspace;
     update_net_current_desktop();
     arrange();
-    if (client_count[current_workspace] > 0) {
-        should_warp_pointer = 1;  // Set the flag when switching workspaces
-        focus_window(clients[current_workspace][0].window);
+    if (workspaces[current_workspace].client_count > 0) {
+        should_warp_pointer = 1;
+        focus_window(workspaces[current_workspace].clients[0].window);
     }
 }
 
@@ -202,31 +230,39 @@ void kill_focused_window(void) {
 }
 
 void move_window(int direction) {
-    int n = client_count[current_workspace];
+    Workspace *ws = &workspaces[current_workspace];
+    int n = ws->client_count;
     if (n <= 1) return;
 
     int new_index = (last_moved_window_index + direction + n) % n;
-    Client temp = clients[current_workspace][last_moved_window_index];
-    clients[current_workspace][last_moved_window_index] = clients[current_workspace][new_index];
-    clients[current_workspace][new_index] = temp;
+    Client temp = ws->clients[last_moved_window_index];
+    ws->clients[last_moved_window_index] = ws->clients[new_index];
+    ws->clients[new_index] = temp;
 
     last_moved_window_index = new_index;
     arrange();
-    focus_window(clients[current_workspace][new_index].window);
+    focus_window(ws->clients[new_index].window);
 }
 
 void resize_main_window(int direction) {
+    Workspace *ws = &workspaces[current_workspace];
     float resize_step = 0.05;
-    if (main_window_ratio[current_workspace] > 0.99 && direction < 0) {
-        main_window_ratio[current_workspace] = 0.6;
+    if (ws->main_window_ratio > 0.99 && direction < 0) {
+        ws->main_window_ratio = 0.6;
     } else {
-        main_window_ratio[current_workspace] = CLAMP(main_window_ratio[current_workspace] + (direction > 0 ? resize_step : -resize_step), 0.1, 1.0);
+        ws->main_window_ratio = CLAMP(ws->main_window_ratio + (direction > 0 ? resize_step : -resize_step), 0.1, 1.0);
     }
     arrange();
 }
 
 void cleanup(void) {
     XUngrabKey(dpy, AnyKey, AnyModifier, root);
+    for (int i = 0; i < MAX_WORKSPACES; i++) {
+        if (workspaces[i].is_initialized) {
+            free(workspaces[i].clients);
+        }
+    }
+    free(workspaces);
     XCloseDisplay(dpy);
 }
 
@@ -255,7 +291,6 @@ void init_ewmh(void) {
     long number_of_desktops = MAX_WORKSPACES;
     XChangeProperty(dpy, root, net_number_of_desktops, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&number_of_desktops, 1);
 
-    // Create a dummy window to hold WM_NAME
     Window dummy = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, 0);
     XChangeProperty(dpy, root, net_supporting_wm_check, XA_WINDOW, 32, PropModeReplace, (unsigned char *)&dummy, 1);
     XChangeProperty(dpy, dummy, net_supporting_wm_check, XA_WINDOW, 32, PropModeReplace, (unsigned char *)&dummy, 1);
@@ -270,8 +305,10 @@ void update_client_list(void) {
     Window client_list[MAX_WORKSPACES * MAX_CLIENTS];
     int total_clients = 0;
     for (int i = 0; i < MAX_WORKSPACES; i++) {
-        for (int j = 0; j < client_count[i]; j++) {
-            client_list[total_clients++] = clients[i][j].window;
+        if (workspaces[i].is_initialized) {
+            for (int j = 0; j < workspaces[i].client_count; j++) {
+                client_list[total_clients++] = workspaces[i].clients[j].window;
+            }
         }
     }
     XChangeProperty(dpy, root, net_client_list, XA_WINDOW, 32, PropModeReplace, (unsigned char *)client_list, total_clients);
@@ -303,7 +340,6 @@ int main(void) {
 
     for (int i = 0; i < MAX_WORKSPACES; i++) {
         XGrabKey(dpy, XKeysymToKeycode(dpy, WORKSPACE_SWITCH_KEY + i), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
-        main_window_ratio[i] = 1.0;
     }
 
     XGrabKey(dpy, XKeysymToKeycode(dpy, KILL_WINDOW_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
@@ -311,6 +347,9 @@ int main(void) {
     XGrabKey(dpy, XKeysymToKeycode(dpy, MOVE_RIGHT_KEY), MOD_KEY, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Left), MOD_KEY | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Right), MOD_KEY | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+
+    workspaces = calloc(MAX_WORKSPACES, sizeof(Workspace));
+    init_workspace(0);  // initialize the first workspace
 
     init_ewmh();
 
@@ -330,7 +369,7 @@ int main(void) {
                 arrange();
                 break;
             case EnterNotify:
-                should_warp_pointer = 0;  // don't warp on mouse enter
+                should_warp_pointer = 0;
                 focus_window(ev.xcrossing.window);
                 break;
             case KeyPress: {
