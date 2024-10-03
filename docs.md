@@ -4,9 +4,11 @@
 
 ```c
 typedef struct { Window window; int x, y, w, h; } Client;
+typedef struct { Client *clients; int client_count; float main_window_ratio; int is_initialized; } Workspace;
 ```
 
 - `client`: represents a managed window with its position and size.
+- `workspace`: represents a workspace with its clients and layout information.
 
 ### global variables
 
@@ -14,11 +16,8 @@ typedef struct { Window window; int x, y, w, h; } Client;
 Display *dpy;
 Window root;
 int screen, current_workspace = 0;
-Client clients[MAX_WORKSPACES][MAX_CLIENTS];
-int client_count[MAX_WORKSPACES] = {0};
-float main_window_ratio[MAX_WORKSPACES];
-int last_moved_window_index = 0;
-int should_warp_pointer = 0;
+Workspace *workspaces;
+int last_moved_window_index = 0, should_warp_pointer = 0;
 
 // ewmh atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
@@ -28,19 +27,30 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 - `root`: the root window.
 - `screen`: the default screen.
 - `current_workspace`: index of the current workspace.
-- `clients`: 2d array of managed windows for each workspace.
-- `client_count`: number of clients in each workspace.
-- `main_window_ratio`: array of ratios for the main window size in each workspace.
+- `workspaces`: array of workspace structures.
 - `last_moved_window_index`: keeps track of the last moved window for consistent movement.
-- `should_warp_pointer`: flag to control when the pointer should be warped to a window's center.
+- `should_warp_pointer`: flag to control pointer warping behavior.
 - `ewmh atoms`: used for ewmh support and communication with other x11 clients.
 
 ### key functions
+
+#### workspace management
+
+1. `void init_workspace(int workspace)`
+   - initializes a workspace on-demand.
+   - allocates memory for clients and sets initial values.
+
+2. `void switch_workspace(int new_workspace)`
+   - switches to the specified workspace, unmapping windows from the current workspace and mapping windows in the new workspace.
+   - initializes the new workspace if it hasn't been used yet.
+   - updates the current desktop for ewmh compliance.
+   - arranges windows and focuses the first window in the new workspace.
 
 #### window management
 
 1. `void manage_window(Window w, int workspace, int is_new)`
    - adds a window to the specified workspace.
+   - initializes the workspace if necessary.
    - updates the client list for ewmh compliance.
    - initially positions new windows off-screen to prevent flashing.
    - adjusts the main_window_ratio when adding a second window.
@@ -58,8 +68,6 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 
 4. `void warp_pointer_to_window(Window w)`
    - moves the mouse pointer to the center of the specified window.
-   - only called when should_warp_pointer is set to 1.
-
 
 #### layouts
 
@@ -70,13 +78,6 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 
 2. `void arrange(void)`
    - applies the current layout to the current workspace.
-
-#### workspace management
-
-1. `void switch_workspace(int new_workspace)`
-   - switches to the specified workspace, unmapping windows from the current workspace and mapping windows in the new workspace.
-   - updates the current desktop for ewmh compliance.
-   - sets the `should_warp_pointer` flag to center the pointer on the first window of the new workspace.
 
 #### window operations
 
@@ -106,7 +107,7 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 
 ### main loop
 
-the `main()` function sets up the x11 environment, grabs keys for shortcuts, initializes ewmh support, initializes the main_window_ratio array, and enters an event loop to handle x11 events. key events handled include:
+the `main()` function sets up the x11 environment, grabs keys for shortcuts, initializes ewmh support, initializes the first workspace, and enters an event loop to handle x11 events. key events handled include:
 
 - workspace switching
 - window killing
@@ -204,3 +205,20 @@ to prevent brief window flash in the top-left corner when creating new windows:
 1. tile: main window on the left, stack on the right
 
 the layout respects the workspace-specific main_window_ratio for sizing windows.
+
+## lazy loading of workspaces
+
+rude implements lazy loading of workspaces:
+
+- workspaces are only initialized when they are first accessed.
+- this reduces memory usage and startup time, especially for users who don't frequently use all available workspaces.
+- the `init_workspace` function is called on-demand to set up a new workspace.
+
+## pointer warping
+
+rude includes a pointer warping feature:
+
+- the mouse pointer is automatically centered on a window in two scenarios:
+  1. when a new window is created
+  2. when switching to a different workspace
+- the `should_warp_pointer` flag controls when pointer warping occurs
