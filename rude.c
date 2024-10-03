@@ -35,8 +35,9 @@ Client clients[MAX_WORKSPACES][MAX_CLIENTS];
 int client_count[MAX_WORKSPACES] = {0};
 float main_window_ratio[MAX_WORKSPACES];
 int last_moved_window_index = 0;
+int should_warp_pointer = 0;
 
-// ewmh atoms
+// EWMH atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
 
 void arrange(void);
@@ -64,6 +65,7 @@ void manage_window(Window w, int workspace, int is_new) {
         if (client_count[workspace] == 2) {
             main_window_ratio[workspace] = 0.5;
         }
+        should_warp_pointer = 1;
     }
     update_client_list();
 }
@@ -85,14 +87,33 @@ void unmanage_window(Window w, int workspace) {
     }
 }
 
+void warp_pointer_to_window(Window w) {
+    if (w == None || w == root) return;
+
+    Window dummy_root;
+    int win_x, win_y;
+    unsigned int win_width, win_height, dummy_border, dummy_depth;
+
+    if (XGetGeometry(dpy, w, &dummy_root, &win_x, &win_y, &win_width, &win_height, &dummy_border, &dummy_depth)) {
+        int center_x = win_x + (win_width / 2);
+        int center_y = win_y + (win_height / 2);
+        XWarpPointer(dpy, None, root, 0, 0, 0, 0, center_x, center_y);
+    }
+}
+
 void focus_window(Window w) {
     if (w != None && w != root) {
         XWindowChanges wc = {.stack_mode = Above};
         XConfigureWindow(dpy, w, CWStackMode, &wc);
         XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
         update_net_active_window(w);
+        if (should_warp_pointer) {
+            warp_pointer_to_window(w);
+            should_warp_pointer = 0;
+        }
     }
 }
+
 
 void tile(int screen_w, int screen_h) {
     int n = client_count[current_workspace];
@@ -151,6 +172,7 @@ void switch_workspace(int new_workspace) {
     update_net_current_desktop();
     arrange();
     if (client_count[current_workspace] > 0) {
+        should_warp_pointer = 1;  // Set the flag when switching workspaces
         focus_window(clients[current_workspace][0].window);
     }
 }
@@ -233,7 +255,7 @@ void init_ewmh(void) {
     long number_of_desktops = MAX_WORKSPACES;
     XChangeProperty(dpy, root, net_number_of_desktops, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&number_of_desktops, 1);
 
-    // create a dummy window to hold WM_NAME
+    // Create a dummy window to hold WM_NAME
     Window dummy = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, 0);
     XChangeProperty(dpy, root, net_supporting_wm_check, XA_WINDOW, 32, PropModeReplace, (unsigned char *)&dummy, 1);
     XChangeProperty(dpy, dummy, net_supporting_wm_check, XA_WINDOW, 32, PropModeReplace, (unsigned char *)&dummy, 1);
@@ -308,6 +330,7 @@ int main(void) {
                 arrange();
                 break;
             case EnterNotify:
+                should_warp_pointer = 0;  // don't warp on mouse enter
                 focus_window(ev.xcrossing.window);
                 break;
             case KeyPress: {
