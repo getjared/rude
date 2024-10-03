@@ -18,6 +18,7 @@ Client clients[MAX_WORKSPACES][MAX_CLIENTS];
 int client_count[MAX_WORKSPACES] = {0};
 float main_window_ratio[MAX_WORKSPACES];
 int last_moved_window_index = 0;
+int should_warp_pointer = 0;
 
 // ewmh atoms
 Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop, net_active_window;
@@ -31,6 +32,7 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 - `client_count`: number of clients in each workspace.
 - `main_window_ratio`: array of ratios for the main window size in each workspace.
 - `last_moved_window_index`: keeps track of the last moved window for consistent movement.
+- `should_warp_pointer`: flag to control when the pointer should be warped to a window's center.
 - `ewmh atoms`: used for ewmh support and communication with other x11 clients.
 
 ### key functions
@@ -42,6 +44,7 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
    - updates the client list for ewmh compliance.
    - initially positions new windows off-screen to prevent flashing.
    - adjusts the main_window_ratio when adding a second window.
+   - sets the should_warp_pointer flag for new windows.
 
 2. `void unmanage_window(Window w, int workspace)`
    - removes a window from the specified workspace.
@@ -51,6 +54,12 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 3. `void focus_window(Window w)`
    - sets input focus to the specified window and raises it.
    - updates the active window for ewmh compliance.
+   - warps the pointer to the window's center if should_warp_pointer is set.
+
+4. `void warp_pointer_to_window(Window w)`
+   - moves the mouse pointer to the center of the specified window.
+   - only called when should_warp_pointer is set to 1.
+
 
 #### layouts
 
@@ -67,6 +76,7 @@ Atom net_supported, net_client_list, net_number_of_desktops, net_current_desktop
 1. `void switch_workspace(int new_workspace)`
    - switches to the specified workspace, unmapping windows from the current workspace and mapping windows in the new workspace.
    - updates the current desktop for ewmh compliance.
+   - sets the `should_warp_pointer` flag to center the pointer on the first window of the new workspace.
 
 #### window operations
 
