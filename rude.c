@@ -25,7 +25,7 @@
 
 #define CLAMP(V, MIN, MAX) ((V) < (MIN) ? (MIN) : (V) > (MAX) ? (MAX) : (V))
 
-typedef struct { Window window; int x, y, w, h; } Client;
+typedef struct { Window window; int x, y, w, h; int is_floating; } Client;
 typedef struct { Client *clients; int client_count; float main_window_ratio; int is_initialized; } Workspace;
 
 Display *dpy;
@@ -46,6 +46,7 @@ void update_net_current_desktop(void);
 void update_net_active_window(Window w);
 void init_workspace(int workspace);
 void warp_pointer_to_window(Window w);
+void move_floating_window(XButtonEvent *ev);
 
 int xerror(Display *dpy, XErrorEvent *ee) {
     (void)dpy;
@@ -73,10 +74,45 @@ void manage_window(Window w, int workspace, int is_new) {
     
     int slot = ws->client_count;
     ws->clients[slot].window = w;
+    ws->clients[slot].is_floating = 0;  // initialize as non-floating
+
+    // check if the window should be floating
+    XWindowAttributes wa;
+    if (XGetWindowAttributes(dpy, w, &wa)) {
+        // check for override_redirect flag (typically used for tooltips and popups)
+        if (wa.override_redirect) {
+            ws->clients[slot].is_floating = 1;
+        } else {
+            // check window type
+            Atom actual_type;
+            int actual_format;
+            unsigned long nitems, bytes_after;
+            unsigned char *data = NULL;
+            Atom wm_window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+            
+            if (XGetWindowProperty(dpy, w, wm_window_type, 0, 1, False, XA_ATOM, &actual_type, &actual_format, &nitems, &bytes_after, &data) == Success && data) {
+                Atom window_type = *(Atom*)data;
+                Atom dialog_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+                Atom utility_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_UTILITY", False);
+                
+                if (window_type == dialog_type || window_type == utility_type) {
+                    ws->clients[slot].is_floating = 1;
+                }
+                XFree(data);
+            }
+        }
+    }
+
     if (is_new) {
         ws->client_count++;
         XSelectInput(dpy, w, EnterWindowMask | FocusChangeMask | StructureNotifyMask);
-        XMoveResizeWindow(dpy, w, -1, -1, 1, 1);
+        if (!ws->clients[slot].is_floating) {
+            XMoveResizeWindow(dpy, w, -1, -1, 1, 1);
+        } else {
+            // for floating windows, keep their original size and center them
+            XMoveWindow(dpy, w, (DisplayWidth(dpy, screen) - wa.width) / 2, 
+                               (DisplayHeight(dpy, screen) - wa.height) / 2);
+        }
         if (ws->client_count == 2) {
             ws->main_window_ratio = 0.5;
         }
@@ -134,28 +170,39 @@ void warp_pointer_to_window(Window w) {
 
 void tile(int screen_w, int screen_h) {
     Workspace *ws = &workspaces[current_workspace];
-    int n = ws->client_count;
+    int n = 0;
+    for (int i = 0; i < ws->client_count; i++) {
+        if (!ws->clients[i].is_floating) n++;
+    }
     if (n == 0) return;
 
     XWindowChanges wc;
     unsigned int value_mask = CWX | CWY | CWWidth | CWHeight;
 
     if (n == 1 || ws->main_window_ratio > 0.99) {
-        Client *c = &ws->clients[0];
-        c->x = GAP_SIZE;
-        c->y = GAP_SIZE;
-        c->w = screen_w - 2 * GAP_SIZE;
-        c->h = screen_h - 2 * GAP_SIZE;
-        wc.x = c->x; wc.y = c->y; wc.width = c->w; wc.height = c->h;
-        XConfigureWindow(dpy, c->window, value_mask, &wc);
+        for (int i = 0; i < ws->client_count; i++) {
+            if (!ws->clients[i].is_floating) {
+                Client *c = &ws->clients[i];
+                c->x = GAP_SIZE;
+                c->y = GAP_SIZE;
+                c->w = screen_w - 2 * GAP_SIZE;
+                c->h = screen_h - 2 * GAP_SIZE;
+                wc.x = c->x; wc.y = c->y; wc.width = c->w; wc.height = c->h;
+                XConfigureWindow(dpy, c->window, value_mask, &wc);
+                break;
+            }
+        }
         return;
     }
 
     int main_w = (int)((screen_w - 3 * GAP_SIZE) * ws->main_window_ratio);
+    int tiled_index = 0;
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < ws->client_count; i++) {
         Client *c = &ws->clients[i];
-        if (i == 0) {
+        if (c->is_floating) continue;
+
+        if (tiled_index == 0) {
             c->x = GAP_SIZE;
             c->y = GAP_SIZE;
             c->w = main_w;
@@ -163,12 +210,13 @@ void tile(int screen_w, int screen_h) {
         } else {
             int slave_h = (screen_h - (n * GAP_SIZE)) / (n - 1);
             c->x = main_w + 2 * GAP_SIZE;
-            c->y = GAP_SIZE + (i - 1) * (slave_h + GAP_SIZE);
+            c->y = GAP_SIZE + (tiled_index - 1) * (slave_h + GAP_SIZE);
             c->w = screen_w - main_w - 3 * GAP_SIZE;
             c->h = slave_h;
         }
         wc.x = c->x; wc.y = c->y; wc.width = c->w; wc.height = c->h;
         XConfigureWindow(dpy, c->window, value_mask, &wc);
+        tiled_index++;
     }
 }
 
@@ -253,6 +301,48 @@ void resize_main_window(int direction) {
         ws->main_window_ratio = CLAMP(ws->main_window_ratio + (direction > 0 ? resize_step : -resize_step), 0.1, 1.0);
     }
     arrange();
+}
+
+void move_floating_window(XButtonEvent *ev) {
+    Window focused;
+    int revert_to;
+    XGetInputFocus(dpy, &focused, &revert_to);
+    
+    Workspace *ws = &workspaces[current_workspace];
+    Client *c = NULL;
+    for (int i = 0; i < ws->client_count; i++) {
+        if (ws->clients[i].window == focused) {
+            c = &ws->clients[i];
+            break;
+        }
+    }
+    
+    if (c && c->is_floating) {
+        int old_x = ev->x_root;
+        int old_y = ev->y_root;
+        
+        XGrabPointer(dpy, root, True, 
+                     PointerMotionMask | ButtonReleaseMask, 
+                     GrabModeAsync, GrabModeAsync, 
+                     None, None, CurrentTime);
+        
+        XEvent ev;
+        while (1) {
+            XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &ev);
+            if (ev.type == MotionNotify) {
+                int xdiff = ev.xmotion.x_root - old_x;
+                int ydiff = ev.xmotion.y_root - old_y;
+                c->x += xdiff;
+                c->y += ydiff;
+                XMoveWindow(dpy, c->window, c->x, c->y);
+                old_x = ev.xmotion.x_root;
+                old_y = ev.xmotion.y_root;
+            } else if (ev.type == ButtonRelease) {
+                break;
+            }
+        }
+        XUngrabPointer(dpy, CurrentTime);
+    }
 }
 
 void cleanup(void) {
@@ -348,6 +438,10 @@ int main(void) {
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Left), MOD_KEY | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Right), MOD_KEY | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
 
+    // grab left mouse button with MOD_KEY for moving floating windows
+    XGrabButton(dpy, Button1, MOD_KEY, root, True, ButtonPressMask, 
+                GrabModeAsync, GrabModeAsync, None, None);
+
     workspaces = calloc(MAX_WORKSPACES, sizeof(Workspace));
     init_workspace(0);  // initialize the first workspace
 
@@ -389,6 +483,11 @@ int main(void) {
                 }
                 break;
             }
+            case ButtonPress:
+                if (ev.xbutton.button == Button1 && ev.xbutton.state == MOD_KEY) {
+                    move_floating_window(&ev.xbutton);
+                }
+                break;
         }
     }
 
