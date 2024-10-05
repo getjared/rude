@@ -9,7 +9,7 @@ what it does:
 - master stack tiling (*because who doesn't love a good stack?*)
 - gives you 9 lazy-loading workspaces (*because 10 would be too mainstream*)
 - lets you have gaps between windows (*for those who fear commitment*)
-- controlled by keyboard (*mouse users, we don't judge... much*)
+- almost controlled by keyboard (*mouse users, we don't judge... much*)
 - basic ewmh support (*we play nice with others, sometimes*)
 
 what you need:
