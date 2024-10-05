@@ -65,6 +65,15 @@ void init_workspace(int workspace) {
     workspaces[workspace].is_initialized = 1;
 }
 
+void raise_floating_windows(void) {
+    Workspace *ws = &workspaces[current_workspace];
+    for (int i = 0; i < ws->client_count; i++) {
+        if (ws->clients[i].is_floating) {
+            XRaiseWindow(dpy, ws->clients[i].window);
+        }
+    }
+}
+
 void manage_window(Window w, int workspace, int is_new) {
     if (workspace < 0 || workspace >= MAX_WORKSPACES) return;
     init_workspace(workspace);
@@ -112,6 +121,7 @@ void manage_window(Window w, int workspace, int is_new) {
             // for floating windows, keep their original size and center them
             XMoveWindow(dpy, w, (DisplayWidth(dpy, screen) - wa.width) / 2, 
                                (DisplayHeight(dpy, screen) - wa.height) / 2);
+            XRaiseWindow(dpy, w);
         }
         if (ws->client_count == 2) {
             ws->main_window_ratio = 0.5;
@@ -119,6 +129,7 @@ void manage_window(Window w, int workspace, int is_new) {
         should_warp_pointer = 1;
     }
     update_client_list();
+    raise_floating_windows();  // ensure all floating windows are on top
 }
 
 void unmanage_window(Window w, int workspace) {
@@ -143,14 +154,27 @@ void unmanage_window(Window w, int workspace) {
 
 void focus_window(Window w) {
     if (w != None && w != root) {
-        XWindowChanges wc = {.stack_mode = Above};
-        XConfigureWindow(dpy, w, CWStackMode, &wc);
+        Workspace *ws = &workspaces[current_workspace];
+        int is_floating = 0;
+        for (int i = 0; i < ws->client_count; i++) {
+            if (ws->clients[i].window == w) {
+                is_floating = ws->clients[i].is_floating;
+                break;
+            }
+        }
+
+        if (!is_floating) {
+            // for non-floating windows, raise them above other non-floating windows
+            XWindowChanges wc = {.stack_mode = Above};
+            XConfigureWindow(dpy, w, CWStackMode, &wc);
+        }
         XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
         update_net_active_window(w);
         if (should_warp_pointer) {
             warp_pointer_to_window(w);
             should_warp_pointer = 0;
         }
+        raise_floating_windows();  // ensure all floating windows are on top
     }
 }
 
@@ -224,6 +248,7 @@ void arrange(void) {
     int screen_w = DisplayWidth(dpy, screen);
     int screen_h = DisplayHeight(dpy, screen);
     tile(screen_w, screen_h);
+    raise_floating_windows();  // ensure all floating windows are on top after arranging
 }
 
 void switch_workspace(int new_workspace) {
