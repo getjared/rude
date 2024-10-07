@@ -42,7 +42,8 @@ make
 sudo make install
 ```
 
-add this to your `.xinitrc`:
+add ```exec rude``` to your `.xinitrc`:
+
 then start x with `startx`
 
 
