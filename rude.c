@@ -196,7 +196,6 @@ static void key_press(XKeyEvent *ev) {
     if (ev->state & Mod4Mask) {
         KeySym ks = XkbKeycodeToKeysym(dpy, ev->keycode, 0, 0);
         if (ks == XK_q && ev->subwindow != None) {
-            // Send WM_DELETE_WINDOW message instead of XKillClient
             Atom wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
             XEvent msg;
             memset(&msg, 0, sizeof(msg));
@@ -235,7 +234,7 @@ int main(void) {
     GC gc = XCreateGC(dpy, root, 0, NULL);
     XSetForeground(dpy, gc, BlackPixel(dpy, screen));
 
-    printf("rude: window manager with infinite canvas started\n");
+    printf("rude: hey look, it actually worked\n");
 
     for (;;) {
         XNextEvent(dpy, &ev);
