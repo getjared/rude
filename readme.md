@@ -22,10 +22,14 @@ a minimal x11 window manager
 
 ## how to build
 
+*this does not have any external keybinds, so use something like sxhkd*
 make sure you have `libx11-dev` installed, then:
 
 ```
-gcc -O3 -o rude rude.c -lX11 -lm
+git clone https://github.com/getjared/rude.git
+cd rude
+ -make
+ -sudo make install
 ```
 
 ## how to use
@@ -33,7 +37,7 @@ gcc -O3 -o rude rude.c -lX11 -lm
 add this to your `.xinitrc`:
 
 ```
-exec ./rude
+exec rude
 ```
 
 then start x with `startx`
