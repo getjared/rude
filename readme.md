@@ -23,6 +23,7 @@ a minimal x11 window manager
 ## how to build
 
 *this does not have any external keybinds, so use something like sxhkd*
+
 make sure you have `libx11-dev` installed, then:
 
 ```
