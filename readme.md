@@ -46,6 +46,7 @@ cd rude
 build it with makefile
 make
 sudo make install
+```
 
 then start x with `startx`
 
