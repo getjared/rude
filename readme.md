@@ -1,74 +1,58 @@
-rude.c (rude little window manager)
------------------------------
+# rude
 
-hey, you. yeah, you. welcome to rude.
-it's a 1 file window manager. it manages windows. shocking, right?
+a minimal x11 window manager
 
-what it does:
--------------
-- master stack tiling (*because who doesn't love a good stack?*)
-- gives you 9 lazy-loading workspaces (*because 10 would be too mainstream*)
-- lets you have gaps between windows (*for those who fear commitment*)
-- almost controlled by keyboard (*mouse users, we don't judge... much*)
-- basic ewmh support (*we play nice with others, sometimes*)
+## features
 
-what you need:
---------------
-- x11 libs
-- gcc or any c compiler
-- make
+- no workspaces, just endless space
+- zoom out to see all your windows at once
+- minimal and rude
+- perfect for tiling window layouts by hand
+- swmh support for compatibility with status bars and scripts
+- written in less than 300 lines of c
 
-how to make it yours:
----------------------
+## keybindings
+
+- `super + left click`: move window
+- `super + right click`: resize window
+- `super + shift + left/right arrow`: scroll the infinite canvas
+- `super + spacebar`: toggle zoom (see all windows / return to normal view)
+- `super + q`: close window
+
+## how to build
+
+make sure you have `libx11-dev` installed, then:
+
 ```
-1. clone it:
-   git clone https://github.com/getjared/rude.git
-   cd rude
-
-2. build it:
-   make
-   sudo make install
-
-3. use it:
-   add this to your .xinitrc:
-   exec rude
-
-   then cross your fingers and startx
-   if you change anything in the source, just cd into the folder, rm -f rude, and make, sudo make install again.
+gcc -O3 -o rude rude.c -lX11 -lm
 ```
 
-*pro tip: rude doesn't launch apps for you. use sxhkd or something.*
+## how to use
 
-how to boss it around:
-----------------------
+add this to your `.xinitrc`:
+
 ```
-MOD + 1-9                : jump to workspace, like a boss
-MOD + q                  : kill window, no mercy
-MOD + LEFT/RIGHT         : move windows left/right, it's like tetris but less fun
-MOD + SHIFT + LEFT/RIGHT : resize main window, for when size matters
+exec ./rude
 ```
 
-customization:
---------------
-want to make rude your own? check out these macros at the top of rude.c:
+or
 
-```c
-#define MAX_WORKSPACES 9
-#define MAX_CLIENTS 100
-#define GAP_SIZE 45
-#define MOD_KEY Mod4Mask
-#define WORKSPACE_SWITCH_KEY XK_1
-#define KILL_WINDOW_KEY XK_q
-#define MOVE_LEFT_KEY XK_Left
-#define MOVE_RIGHT_KEY XK_Right
-#define RESIZE_DECREASE_KEY XK_Left
-#define RESIZE_INCREASE_KEY XK_Right
 ```
+clone it
+git clone https://github.com/getjared/rude.git
 
-tweak 'em to your heart's content. just remember to recompile after.
+cd rude
 
-final words:
-------------
-this wm is my own little project and my main driver. feel free to use it, laugh at it, or send me a virtual high five.
+build it with makefile
+make
+sudo make install
 
-check out docs.md for the nitty-gritty details. or don't. i'm not your boss.
+then start x with `startx`
+
+
+
+## why. .
+
+this is my own little project, not really meant for other people to actually use it, lol..
+
+💀
