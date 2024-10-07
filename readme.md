@@ -40,7 +40,6 @@ or
 ```
 clone it
 git clone https://github.com/getjared/rude.git
-
 cd rude
 
 build it with makefile
