@@ -1,14 +1,25 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 
-LDFLAGS = -lX11 -lm
+CFLAGS = -Wall -Wextra -O2
+LDFLAGS = -lX11
 
-rude: rude.c
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+PREFIX = /usr/local
+BINDIR = $(PREFIX)/bin
 
-.PHONY: clean install
+TARGET = rude
+SOURCES = rude.c
+
+all: $(TARGET)
+
+$(TARGET): $(SOURCES)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+install: $(TARGET)
+	install -D -m 755 $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
+
+uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/$(TARGET)
 
 clean:
-	rm -f rude
+	rm -f $(TARGET)
 
-install: rude
-	install -D -m 755 rude $(DESTDIR)/usr/local/bin/rude
+.PHONY: all install uninstall clean
