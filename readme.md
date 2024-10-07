@@ -29,15 +29,8 @@ gcc -O3 -o rude rude.c -lX11 -lm
 
 ## how to use
 
-add this to your `.xinitrc`:
-
 *rude has no real keybinds for terminals or anything, so use sxhkd or something.*
 
-```
-exec rude
-```
-
-or
 
 ```
 clone it
@@ -49,6 +42,7 @@ make
 sudo make install
 ```
 
+add this to your `.xinitrc`:
 then start x with `startx`
 
 
