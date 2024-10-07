@@ -195,8 +195,17 @@ static void key_press(XKeyEvent *ev) {
     if (ev->state & Mod4Mask) {
         KeySym ks = XkbKeycodeToKeysym(dpy, ev->keycode, 0, 0);
         if (ks == XK_q && ev->subwindow != None) {
-            XKillClient(dpy, ev->subwindow);
-            remove_window(ev->subwindow);
+            // Send WM_DELETE_WINDOW message instead of XKillClient
+            Atom wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+            XEvent msg;
+            memset(&msg, 0, sizeof(msg));
+            msg.xclient.type = ClientMessage;
+            msg.xclient.message_type = XInternAtom(dpy, "WM_PROTOCOLS", True);
+            msg.xclient.window = ev->subwindow;
+            msg.xclient.format = 32;
+            msg.xclient.data.l[0] = wmDeleteMessage;
+            msg.xclient.data.l[1] = CurrentTime;
+            XSendEvent(dpy, ev->subwindow, False, NoEventMask, &msg);
         } else if (ks == XK_space) {
             toggle_zoom();
         } else if (ev->state & ShiftMask) {
