@@ -4,7 +4,6 @@ a minimal x11 window manager
 
 ## features
 
-- infinite scrollable workspace
 - no workspaces, just endless space
 - zoom out to see all your windows at once
 - minimal
