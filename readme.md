@@ -1,38 +1,45 @@
 # rude
 
-a minimal tiling window manager
+a minimal x11 window manager
 
 ## features
 
-- tiling
-- multiple workspaces
-- master-and-slave layout
-- basic ewmh support
+- infinite scrollable workspace
+- no workspaces, just endless space
+- zoom out to see all your windows at once
+- minimal
+- floating
+- EWMH support for compatibility with status bars and scripts
+- written in less than 300 lines of c
 
-## dependencies
+## keybindings
 
-- libx11
+- `super + left click`: move window
+- `super + right click`: resize window
+- `super + shift + left/right arrow`: scroll the infinite canvas
+- `super + spacebar`: toggle zoom (see all windows / return to normal view)
+- `super + q`: close window
 
-## installation
+## how to build
+
+make sure you have `libx11-dev` installed, then:
 
 ```
-make
-sudo make install
+gcc -O3 -o rude rude.c -lX11 -lm
 ```
 
-## usage
+## how to use
 
-add `exec rude` to your `~/.xinitrc` file
+add this to your `.xinitrc`:
 
-### keybindings
+```
+exec ./rude
+```
 
-- `Mod+[1-9]`: switch to workspace
-- `Mod+q`: kill focused window
-- `Mod+Left/Right`: move window in stack
-- `Mod+Shift+Left/Right`: resize main window
-- `Mod+Left Click`: move floating window (tooltips only)
+then start x with `startx`
 
+## why ..
 
-## what ?
+this is my own little wm project, not really meant to be used by anyone else..
 
-yeah this is my own little person project, it's not really meant for anyone to use but i am using github for all my backups.
+💀
