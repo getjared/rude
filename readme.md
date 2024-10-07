@@ -7,7 +7,7 @@ a minimal x11 window manager
 - no workspaces, just endless space
 - zoom out to see all your windows at once
 - minimal and rude
-- perfect for tiling window layouts by hand
+- floating windows
 - swmh support for compatibility with status bars and scripts
 - written in less than 300 lines of c
 
