@@ -49,4 +49,6 @@ then start x with `startx`
 
 this is my own little wm project, not really meant to be used by anyone else..
 
+inspiration from sowm, dwm and all the other fun wm's we know. <3suckless
+
 💀
