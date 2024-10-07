@@ -46,7 +46,7 @@ add ```exec rude``` to your `.xinitrc`:
 
 then start x with `startx`
 
-to complete shut it down i would suggest adding this as well to your ```.xinitrc```
+to completely shut it down i would suggest adding this as well to your ```.xinitrc```
 
 ```
 setxkbmap -option terminate:ctrl_alt_bksp
