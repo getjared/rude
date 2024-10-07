@@ -37,6 +37,8 @@ cd rude
 
 add this to your `.xinitrc`:
 
+i also suggest adding ```setxkbmap -option terminate:ctrl_alt_bksp``` to kill the wm.
+
 ```
 exec rude
 ```
