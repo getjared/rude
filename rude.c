@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -16,16 +17,15 @@
 #define MAX_WINDOWS 100
 #define ZOOM_FACTOR 0.1
 
-
 typedef struct {
     Window win;
     int x, y, width, height;
+    int prev_x, prev_y, prev_width, prev_height;
 } WindowInfo;
 
 static Display *dpy;
 static Window root;
 static XWindowAttributes attr;
-static XButtonEvent start;
 static XEvent ev;
 static int screen, sh, sw, viewport_x, viewport_y;
 static WindowInfo windows[MAX_WINDOWS];
@@ -62,7 +62,7 @@ static void focus(Window w) {
 
 static void add_window(Window win, int x, int y, int width, int height) {
     if (window_count < MAX_WINDOWS) {
-        windows[window_count++] = (WindowInfo){win, x, y, width, height};
+        windows[window_count++] = (WindowInfo){win, x, y, width, height, -1, -1, -1, -1};
     }
 }
 
@@ -81,8 +81,17 @@ static void update_window_positions() {
         int y = (windows[i].y - viewport_y) * zoom_level;
         int width = windows[i].width * zoom_level;
         int height = windows[i].height * zoom_level;
-        XMoveResizeWindow(dpy, windows[i].win, x, y, width, height);
+
+        if (x != windows[i].prev_x || y != windows[i].prev_y ||
+            width != windows[i].prev_width || height != windows[i].prev_height) {
+            XMoveResizeWindow(dpy, windows[i].win, x, y, width, height);
+            windows[i].prev_x = x;
+            windows[i].prev_y = y;
+            windows[i].prev_width = width;
+            windows[i].prev_height = height;
+        }
     }
+    XFlush(dpy);
 }
 
 static void scroll_viewport(int dx, int dy) {
@@ -92,9 +101,12 @@ static void scroll_viewport(int dx, int dy) {
 }
 
 static void move(Window win) {
-    XRaiseWindow(dpy, win);
-    XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
-    start = ev.xbutton;
+    if (XRaiseWindow(dpy, win) == BadWindow) return;
+    if (XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask,
+                     GrabModeAsync, GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
+        return;
+    int start_x = ev.xbutton.x_root;
+    int start_y = ev.xbutton.y_root;
     WindowInfo *wi = NULL;
     for (int i = 0; i < window_count; i++) {
         if (windows[i].win == win) {
@@ -102,26 +114,39 @@ static void move(Window win) {
             break;
         }
     }
-    if (!wi) return;
-    while (XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &ev) == 0) {
-        if (ev.type == ButtonRelease) break;
-        if (ev.type == MotionNotify) {
-            int xdiff = (ev.xbutton.x_root - start.x_root) / zoom_level;
-            int ydiff = (ev.xbutton.y_root - start.y_root) / zoom_level;
-            wi->x += xdiff;
-            wi->y += ydiff;
-            XMoveWindow(dpy, win, (wi->x - viewport_x) * zoom_level, (wi->y - viewport_y) * zoom_level);
-            start = ev.xbutton;
+    if (!wi) {
+        XUngrabPointer(dpy, CurrentTime);
+        return;
+    }
+    while (1) {
+        XEvent new_ev;
+        if (XCheckMaskEvent(dpy, ButtonReleaseMask, &new_ev)) {
+            break;
         }
+        while (XCheckMaskEvent(dpy, PointerMotionMask, &new_ev)) {
+            if (new_ev.type == MotionNotify) {
+                double xdiff = (new_ev.xmotion.x_root - start_x) / zoom_level;
+                double ydiff = (new_ev.xmotion.y_root - start_y) / zoom_level;
+                wi->x += xdiff;
+                wi->y += ydiff;
+                XMoveWindow(dpy, win, (wi->x - viewport_x) * zoom_level, (wi->y - viewport_y) * zoom_level);
+                start_x = new_ev.xmotion.x_root;
+                start_y = new_ev.xmotion.y_root;
+            }
+        }
+        usleep(1000);
     }
     XUngrabPointer(dpy, CurrentTime);
+    XFlush(dpy);
 }
 
 static void resize(Window win) {
-    XRaiseWindow(dpy, win);
-    XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
-    XGetWindowAttributes(dpy, win, &attr);
-    start = ev.xbutton;
+    if (XRaiseWindow(dpy, win) == BadWindow) return;
+    if (XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask,
+                     GrabModeAsync, GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
+        return;
+    int start_x = ev.xbutton.x_root;
+    int start_y = ev.xbutton.y_root;
     WindowInfo *wi = NULL;
     for (int i = 0; i < window_count; i++) {
         if (windows[i].win == win) {
@@ -129,28 +154,38 @@ static void resize(Window win) {
             break;
         }
     }
-    if (!wi) return;
+    if (!wi) {
+        XUngrabPointer(dpy, CurrentTime);
+        return;
+    }
     int last_width = wi->width, last_height = wi->height;
     double resize_factor = 1.0 / zoom_level;
-    while (XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &ev) == 0) {
-        if (ev.type == ButtonRelease) break;
-        if (ev.type == MotionNotify) {
-            int xdiff = (ev.xbutton.x_root - start.x_root) * resize_factor;
-            int ydiff = (ev.xbutton.y_root - start.y_root) * resize_factor;
-            int new_width = MAX(MIN_WINDOW_WIDTH, wi->width + xdiff);
-            int new_height = MAX(MIN_WINDOW_HEIGHT, wi->height + ydiff);
-            if (abs(new_width - last_width) > 1 || abs(new_height - last_height) > 1) {
-                wi->width = new_width;
-                wi->height = new_height;
-                XResizeWindow(dpy, win, new_width * zoom_level, new_height * zoom_level);
-                XFlush(dpy);
-                last_width = new_width;
-                last_height = new_height;
-            }
-            start = ev.xbutton;
+    while (1) {
+        XEvent new_ev;
+        if (XCheckMaskEvent(dpy, ButtonReleaseMask, &new_ev)) {
+            break;
         }
+        while (XCheckMaskEvent(dpy, PointerMotionMask, &new_ev)) {
+            if (new_ev.type == MotionNotify) {
+                double xdiff = (new_ev.xmotion.x_root - start_x) * resize_factor;
+                double ydiff = (new_ev.xmotion.y_root - start_y) * resize_factor;
+                int new_width = MAX(MIN_WINDOW_WIDTH, wi->width + xdiff);
+                int new_height = MAX(MIN_WINDOW_HEIGHT, wi->height + ydiff);
+                if (abs(new_width - last_width) > 1 || abs(new_height - last_height) > 1) {
+                    wi->width = new_width;
+                    wi->height = new_height;
+                    XResizeWindow(dpy, win, new_width * zoom_level, new_height * zoom_level);
+                    last_width = new_width;
+                    last_height = new_height;
+                }
+                start_x = new_ev.xmotion.x_root;
+                start_y = new_ev.xmotion.y_root;
+            }
+        }
+        usleep(1000);
     }
     XUngrabPointer(dpy, CurrentTime);
+    XFlush(dpy);
 }
 
 static void map_request(XMapRequestEvent *ev) {
@@ -164,6 +199,7 @@ static void map_request(XMapRequestEvent *ev) {
     XMapWindow(dpy, ev->window);
     add_window(ev->window, x, y, width, height);
     focus(ev->window);
+    XFlush(dpy);
 }
 
 static void toggle_zoom() {
@@ -174,9 +210,10 @@ static void toggle_zoom() {
     } else {
         original_viewport_x = viewport_x;
         original_viewport_y = viewport_y;
-        int min_x = viewport_x, max_x = viewport_x;
-        int min_y = viewport_y, max_y = viewport_y;
-        for (int i = 0; i < window_count; i++) {
+        if (window_count == 0) return;
+        int min_x = windows[0].x, max_x = windows[0].x + windows[0].width;
+        int min_y = windows[0].y, max_y = windows[0].y + windows[0].height;
+        for (int i = 1; i < window_count; i++) {
             min_x = MIN(min_x, windows[i].x);
             max_x = MAX(max_x, windows[i].x + windows[i].width);
             min_y = MIN(min_y, windows[i].y);
@@ -211,6 +248,8 @@ static void key_press(XKeyEvent *ev) {
         } else if (ev->state & ShiftMask) {
             if (ks == XK_Left) scroll_viewport(-SCROLL_STEP / zoom_level, 0);
             else if (ks == XK_Right) scroll_viewport(SCROLL_STEP / zoom_level, 0);
+            else if (ks == XK_Up) scroll_viewport(0, -SCROLL_STEP / zoom_level);
+            else if (ks == XK_Down) scroll_viewport(0, SCROLL_STEP / zoom_level);
         }
     }
 }
@@ -230,28 +269,33 @@ int main(void) {
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_q), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Left), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Right), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Up), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Down), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_space), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
     GC gc = XCreateGC(dpy, root, 0, NULL);
     XSetForeground(dpy, gc, BlackPixel(dpy, screen));
 
-    printf("rude: hey look, it actually worked\n");
+    printf("rude: oh, it worked\n");
 
     for (;;) {
-        XNextEvent(dpy, &ev);
-        switch (ev.type) {
-            case MapRequest: map_request(&ev.xmaprequest); break;
-            case ButtonPress:
-                if (ev.xbutton.subwindow != None) {
-                    focus(ev.xbutton.subwindow);
-                    if (ev.xbutton.button == 1) move(ev.xbutton.subwindow);
-                    else if (ev.xbutton.button == 3) resize(ev.xbutton.subwindow);
-                }
-                break;
-            case KeyPress: key_press(&ev.xkey); break;
-            case EnterNotify: focus(ev.xcrossing.window); break;
-            case DestroyNotify: remove_window(ev.xdestroywindow.window); break;
-            case Expose: XFillRectangle(dpy, root, gc, 0, 0, sw, sh); break;
+        while (XPending(dpy)) {
+            XNextEvent(dpy, &ev);
+            switch (ev.type) {
+                case MapRequest: map_request(&ev.xmaprequest); break;
+                case ButtonPress:
+                    if (ev.xbutton.subwindow != None) {
+                        focus(ev.xbutton.subwindow);
+                        if (ev.xbutton.button == 1) move(ev.xbutton.subwindow);
+                        else if (ev.xbutton.button == 3) resize(ev.xbutton.subwindow);
+                    }
+                    break;
+                case KeyPress: key_press(&ev.xkey); break;
+                case EnterNotify: focus(ev.xcrossing.window); break;
+                case DestroyNotify: remove_window(ev.xdestroywindow.window); break;
+                case Expose: XFillRectangle(dpy, root, gc, 0, 0, sw, sh); break;
+            }
         }
+        usleep(1000);
     }
     XFreeGC(dpy, gc);
     XCloseDisplay(dpy);
