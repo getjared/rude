@@ -9,7 +9,7 @@ a minimal x11 window manager
 - minimal
 - floating
 - EWMH support for compatibility with status bars and scripts
-- written in less than 300 lines of c
+- written in c
 
 ## keybindings
 
