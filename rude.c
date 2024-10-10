@@ -58,7 +58,6 @@ static void focus(Window w) {
     if (w == None) w = root;
     XRaiseWindow(dpy, w);
     XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
-    XFlush(dpy);
 }
 
 static void add_window(Window win, int x, int y, int width, int height) {
@@ -92,7 +91,6 @@ static void update_window_positions() {
             windows[i].prev_height = height;
         }
     }
-    XFlush(dpy);
 }
 
 static void scroll_viewport(int dx, int dy) {
@@ -136,7 +134,6 @@ static void move(Window win) {
         }
     }
     XUngrabPointer(dpy, CurrentTime);
-    XFlush(dpy);
 }
 
 static void resize(Window win) {
@@ -185,7 +182,6 @@ static void resize(Window win) {
         }
     }
     XUngrabPointer(dpy, CurrentTime);
-    XFlush(dpy);
 }
 
 static void map_request(XMapRequestEvent *ev) {
@@ -199,7 +195,6 @@ static void map_request(XMapRequestEvent *ev) {
     XMapWindow(dpy, ev->window);
     add_window(ev->window, x, y, width, height);
     focus(ev->window);
-    XFlush(dpy);
 }
 
 static void toggle_zoom() {
@@ -269,24 +264,22 @@ int main(void) {
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Right), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_space), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
 
-    printf("rude: lol, it still works\n");
+    printf("rude: window manager with infinite canvas started\n");
 
     for (;;) {
-        while (XPending(dpy)) {
-            XNextEvent(dpy, &ev);
-            switch (ev.type) {
-                case MapRequest: map_request(&ev.xmaprequest); break;
-                case ButtonPress:
-                    if (ev.xbutton.subwindow != None) {
-                        focus(ev.xbutton.subwindow);
-                        if (ev.xbutton.button == 1) move(ev.xbutton.subwindow);
-                        else if (ev.xbutton.button == 3) resize(ev.xbutton.subwindow);
-                    }
-                    break;
-                case KeyPress: key_press(&ev.xkey); break;
-                case EnterNotify: focus(ev.xcrossing.window); break;
-                case DestroyNotify: remove_window(ev.xdestroywindow.window); break;
-            }
+        XNextEvent(dpy, &ev);
+        switch (ev.type) {
+            case MapRequest: map_request(&ev.xmaprequest); break;
+            case ButtonPress:
+                if (ev.xbutton.subwindow != None) {
+                    focus(ev.xbutton.subwindow);
+                    if (ev.xbutton.button == 1) move(ev.xbutton.subwindow);
+                    else if (ev.xbutton.button == 3) resize(ev.xbutton.subwindow);
+                }
+                break;
+            case KeyPress: key_press(&ev.xkey); break;
+            case EnterNotify: focus(ev.xcrossing.window); break;
+            case DestroyNotify: remove_window(ev.xdestroywindow.window); break;
         }
     }
     XCloseDisplay(dpy);
