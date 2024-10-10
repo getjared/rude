@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <unistd.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -25,7 +24,6 @@ typedef struct {
 
 static Display *dpy;
 static Window root;
-static XWindowAttributes attr;
 static XEvent ev;
 static int screen, sh, sw, viewport_x, viewport_y;
 static WindowInfo windows[MAX_WINDOWS];
@@ -57,7 +55,10 @@ static void setup_ewmh(void) {
 }
 
 static void focus(Window w) {
-    XSetInputFocus(dpy, w == None ? root : w, RevertToPointerRoot, CurrentTime);
+    if (w == None) w = root;
+    XRaiseWindow(dpy, w);
+    XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
+    XFlush(dpy);
 }
 
 static void add_window(Window win, int x, int y, int width, int height) {
@@ -118,23 +119,21 @@ static void move(Window win) {
         XUngrabPointer(dpy, CurrentTime);
         return;
     }
+    XEvent new_ev;
     while (1) {
-        XEvent new_ev;
-        if (XCheckMaskEvent(dpy, ButtonReleaseMask, &new_ev)) {
+        XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &new_ev);
+        if (new_ev.type == MotionNotify) {
+            while (XCheckTypedEvent(dpy, MotionNotify, &new_ev));
+            double xdiff = (new_ev.xmotion.x_root - start_x) / zoom_level;
+            double ydiff = (new_ev.xmotion.y_root - start_y) / zoom_level;
+            wi->x += xdiff;
+            wi->y += ydiff;
+            XMoveWindow(dpy, win, (wi->x - viewport_x) * zoom_level, (wi->y - viewport_y) * zoom_level);
+            start_x = new_ev.xmotion.x_root;
+            start_y = new_ev.xmotion.y_root;
+        } else if (new_ev.type == ButtonRelease) {
             break;
         }
-        while (XCheckMaskEvent(dpy, PointerMotionMask, &new_ev)) {
-            if (new_ev.type == MotionNotify) {
-                double xdiff = (new_ev.xmotion.x_root - start_x) / zoom_level;
-                double ydiff = (new_ev.xmotion.y_root - start_y) / zoom_level;
-                wi->x += xdiff;
-                wi->y += ydiff;
-                XMoveWindow(dpy, win, (wi->x - viewport_x) * zoom_level, (wi->y - viewport_y) * zoom_level);
-                start_x = new_ev.xmotion.x_root;
-                start_y = new_ev.xmotion.y_root;
-            }
-        }
-        usleep(1000);
     }
     XUngrabPointer(dpy, CurrentTime);
     XFlush(dpy);
@@ -145,8 +144,18 @@ static void resize(Window win) {
     if (XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask,
                      GrabModeAsync, GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
         return;
+
+    XWindowAttributes wa;
+    if (!XGetWindowAttributes(dpy, win, &wa)) {
+        XUngrabPointer(dpy, CurrentTime);
+        return;
+    }
+
     int start_x = ev.xbutton.x_root;
     int start_y = ev.xbutton.y_root;
+    int orig_width = wa.width;
+    int orig_height = wa.height;
+
     WindowInfo *wi = NULL;
     for (int i = 0; i < window_count; i++) {
         if (windows[i].win == win) {
@@ -158,31 +167,22 @@ static void resize(Window win) {
         XUngrabPointer(dpy, CurrentTime);
         return;
     }
-    int last_width = wi->width, last_height = wi->height;
-    double resize_factor = 1.0 / zoom_level;
+
+    XEvent new_ev;
     while (1) {
-        XEvent new_ev;
-        if (XCheckMaskEvent(dpy, ButtonReleaseMask, &new_ev)) {
+        XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &new_ev);
+        if (new_ev.type == MotionNotify) {
+            while (XCheckTypedEvent(dpy, MotionNotify, &new_ev));
+            int xdiff = new_ev.xmotion.x_root - start_x;
+            int ydiff = new_ev.xmotion.y_root - start_y;
+            int new_width = MAX(MIN_WINDOW_WIDTH, orig_width + xdiff / zoom_level);
+            int new_height = MAX(MIN_WINDOW_HEIGHT, orig_height + ydiff / zoom_level);
+            wi->width = new_width;
+            wi->height = new_height;
+            XResizeWindow(dpy, win, new_width * zoom_level, new_height * zoom_level);
+        } else if (new_ev.type == ButtonRelease) {
             break;
         }
-        while (XCheckMaskEvent(dpy, PointerMotionMask, &new_ev)) {
-            if (new_ev.type == MotionNotify) {
-                double xdiff = (new_ev.xmotion.x_root - start_x) * resize_factor;
-                double ydiff = (new_ev.xmotion.y_root - start_y) * resize_factor;
-                int new_width = MAX(MIN_WINDOW_WIDTH, wi->width + xdiff);
-                int new_height = MAX(MIN_WINDOW_HEIGHT, wi->height + ydiff);
-                if (abs(new_width - last_width) > 1 || abs(new_height - last_height) > 1) {
-                    wi->width = new_width;
-                    wi->height = new_height;
-                    XResizeWindow(dpy, win, new_width * zoom_level, new_height * zoom_level);
-                    last_width = new_width;
-                    last_height = new_height;
-                }
-                start_x = new_ev.xmotion.x_root;
-                start_y = new_ev.xmotion.y_root;
-            }
-        }
-        usleep(1000);
     }
     XUngrabPointer(dpy, CurrentTime);
     XFlush(dpy);
@@ -248,8 +248,6 @@ static void key_press(XKeyEvent *ev) {
         } else if (ev->state & ShiftMask) {
             if (ks == XK_Left) scroll_viewport(-SCROLL_STEP / zoom_level, 0);
             else if (ks == XK_Right) scroll_viewport(SCROLL_STEP / zoom_level, 0);
-            else if (ks == XK_Up) scroll_viewport(0, -SCROLL_STEP / zoom_level);
-            else if (ks == XK_Down) scroll_viewport(0, SCROLL_STEP / zoom_level);
         }
     }
 }
@@ -269,13 +267,9 @@ int main(void) {
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_q), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Left), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Right), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Up), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Down), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_space), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
-    GC gc = XCreateGC(dpy, root, 0, NULL);
-    XSetForeground(dpy, gc, BlackPixel(dpy, screen));
 
-    printf("rude: oh, it worked\n");
+    printf("rude: lol, it still works\n");
 
     for (;;) {
         while (XPending(dpy)) {
@@ -292,12 +286,9 @@ int main(void) {
                 case KeyPress: key_press(&ev.xkey); break;
                 case EnterNotify: focus(ev.xcrossing.window); break;
                 case DestroyNotify: remove_window(ev.xdestroywindow.window); break;
-                case Expose: XFillRectangle(dpy, root, gc, 0, 0, sw, sh); break;
             }
         }
-        usleep(1000);
     }
-    XFreeGC(dpy, gc);
     XCloseDisplay(dpy);
     return 0;
 }
