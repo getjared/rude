@@ -46,8 +46,9 @@ then start x with:
 
 
 § contributing
-```
+
 feedback, bug reports, and pull requests are welcome.
 please use the github issue tracker for bug reports and feature requests.
 
 keep in mind that rude is intended to remain minimalist and lightweight.
+```
