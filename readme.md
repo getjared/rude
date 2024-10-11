@@ -1,53 +1,52 @@
-# rude
+                              rude.c
+                 <https://github.com/getjared/rude>
 
-a minimal x11 window manager
+features:
+• minimalist floating window manager for x11
+• written in c with minimal dependencies
+• lightweight and fast
+• completely endless canvas
+• ewmh compliant
 
-## features
+see ./makefile for a easy installation
 
-- no workspaces, just endless space
-- zoom out to see all your windows at once
-- minimal
-- floating
-- EWMH support for compatibility with status bars and scripts
-- written in c
 
-## keybindings
+§ installation
 
-- `super + left click`: move window
-- `super + right click`: resize window
-- `super + shift + left/right arrow`: scroll the infinite canvas
-- `super + spacebar`: toggle zoom (see all windows / return to normal view)
-- `super + q`: close window
-
-## how to build
-
-*this does not have any external keybinds, so use something like sxhkd*
-
-make sure you have `libx11-dev` installed, then:
-
-```
 git clone https://github.com/getjared/rude.git
 cd rude
- -make
- -sudo make install
-```
+make
+sudo make install
 
-## how to use
+dependencies:
+• c compiler (gcc or clang)
+• make
+• x11 libraries and headers (xlib)
 
-add this to your `.xinitrc`:
 
-i also suggest adding ```setxkbmap -option terminate:ctrl_alt_bksp``` to kill the wm.
+§ quick-start
 
-```
-exec rude
-```
+key bindings:
+• mod4 + left click: move window
+• mod4 + right click: resize window
+• mod4 + q: close focused window
+• mod4 + space: toggle zoom mode
+• mod4 + shift + left/right: scroll viewport
 
-then start x with `startx`
+configuration:
+rude is designed to be simple and minimalist. configuration is done by modifying the source code and recompiling.
 
-## why ..
+launching rude:
+add the following line to your ~/.xinitrc file:
+    exec rude
 
-this is my own little wm project, not really meant to be used by anyone else..
+then start x with:
+    startx
 
-inspiration from sowm, dwm and all the other fun wm's we know. <3suckless
 
-💀
+§ contributing
+
+feedback, bug reports, and pull requests are welcome.
+please use the github issue tracker for bug reports and feature requests.
+
+keep in mind that rude is intended to remain minimalist and lightweight.
