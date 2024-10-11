@@ -19,7 +19,8 @@ cd rude
 make
 sudo make install
 
-dependencies:
+§ dependencies
+
 • c compiler (gcc or clang)
 • make
 • x11 libraries and headers (xlib)
