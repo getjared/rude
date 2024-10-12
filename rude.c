@@ -1,287 +1,230 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
-#include <X11/XKBlib.h>
-#include <X11/Xatom.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
+#include <X11/cursorfont.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define LENGTH(X) (sizeof(X) / sizeof(*X))
 
-#define MIN_WINDOW_WIDTH 200
-#define MIN_WINDOW_HEIGHT 100
-#define SCROLL_STEP 50
-#define MAX_WINDOWS 100
-#define ZOOM_FACTOR 0.1
-
-typedef struct {
+typedef struct { 
     Window win;
-    int x, y, width, height;
-    int prev_x, prev_y, prev_width, prev_height;
-} WindowInfo;
+    int is_floating;
+    int x, y, w, h;
+} Client;
 
 static Display *dpy;
 static Window root;
-static XEvent ev;
-static int screen, sh, sw, viewport_x, viewport_y;
-static WindowInfo windows[MAX_WINDOWS];
-static int window_count;
-static int is_zoomed = 0;
-static double zoom_level = 1.0;
-static int original_viewport_x, original_viewport_y;
+static Client clients[16];
+static unsigned int nc = 0, focus = 0;
+static const unsigned int borderpx = 1, gappx = 5;
+static const float master_size = 0.55;
 
-static Atom net_supported, net_wm_name, net_supporting_wm_check;
-
-static void setup_ewmh(void) {
-    net_supported = XInternAtom(dpy, "_NET_SUPPORTED", False);
-    net_wm_name = XInternAtom(dpy, "_NET_WM_NAME", False);
-    net_supporting_wm_check = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
-
-    Window check_window = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, 0);
-
-    XChangeProperty(dpy, check_window, net_wm_name, XA_STRING, 8,
-                    PropModeReplace, (unsigned char *) "rude", strlen("rude"));
-
-    XChangeProperty(dpy, root, net_supporting_wm_check, XA_WINDOW, 32,
-                    PropModeReplace, (unsigned char *) &check_window, 1);
-
-    XChangeProperty(dpy, check_window, net_supporting_wm_check, XA_WINDOW, 32,
-                    PropModeReplace, (unsigned char *) &check_window, 1);
-
-    XChangeProperty(dpy, root, net_supported, XA_ATOM, 32,
-                    PropModeReplace, (unsigned char *) &net_supporting_wm_check, 1);
-}
-
-static void focus(Window w) {
-    if (w == None) w = root;
-    XRaiseWindow(dpy, w);
-    XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
-}
-
-static void add_window(Window win, int x, int y, int width, int height) {
-    if (window_count < MAX_WINDOWS) {
-        windows[window_count++] = (WindowInfo){win, x, y, width, height, -1, -1, -1, -1};
+static void focus_client(int i) {
+    if (i >= 0 && i < (int)nc) {
+        XSetInputFocus(dpy, clients[i].win, RevertToPointerRoot, CurrentTime);
+        XSetWindowBorder(dpy, clients[i].win, 0xFFFFFF);
+        if (focus != (unsigned int)i) 
+            XSetWindowBorder(dpy, clients[focus].win, 0x000000);
+        focus = i;
+        XRaiseWindow(dpy, clients[focus].win);
     }
 }
 
-static void remove_window(Window win) {
-    for (int i = 0; i < window_count; i++) {
-        if (windows[i].win == win) {
-            windows[i] = windows[--window_count];
-            return;
+static void tile(void) {
+    int sw = DisplayWidth(dpy, DefaultScreen(dpy));
+    int sh = DisplayHeight(dpy, DefaultScreen(dpy));
+    int mw = (sw * master_size) - gappx;
+    int mx = gappx, my = gappx, sx = mw + 2*gappx, sy = gappx;
+    int mh = sh - 2*gappx, sh_adj;
+    unsigned int i, n = 0;
+
+    for (i = 0; i < nc; i++)
+        if (!clients[i].is_floating)
+            n++;
+
+    if (n == 1) {
+        for (i = 0; i < nc; i++)
+            if (!clients[i].is_floating) {
+                XMoveResizeWindow(dpy, clients[i].win, 0, 0, sw, sh);
+                XSetWindowBorderWidth(dpy, clients[i].win, 0);
+                break;
+            }
+    } else if (n > 1) {
+        int j = 0;
+        for (i = 0; i < nc; i++) {
+            if (clients[i].is_floating) continue;
+            if (j == 0) {
+                XMoveResizeWindow(dpy, clients[i].win, mx, my, mw - 2*borderpx, mh - 2*borderpx);
+            } else {
+                sh_adj = (sh - (n * gappx)) / (n - 1);
+                XMoveResizeWindow(dpy, clients[i].win, sx, sy, 
+                                  sw - sx - gappx - 2*borderpx, 
+                                  sh_adj - 2*borderpx);
+                sy += sh_adj + gappx;
+            }
+            XSetWindowBorderWidth(dpy, clients[i].win, borderpx);
+            j++;
         }
     }
-}
 
-static void update_window_positions() {
-    for (int i = 0; i < window_count; i++) {
-        int x = (windows[i].x - viewport_x) * zoom_level;
-        int y = (windows[i].y - viewport_y) * zoom_level;
-        int width = windows[i].width * zoom_level;
-        int height = windows[i].height * zoom_level;
-
-        if (x != windows[i].prev_x || y != windows[i].prev_y ||
-            width != windows[i].prev_width || height != windows[i].prev_height) {
-            XMoveResizeWindow(dpy, windows[i].win, x, y, width, height);
-            windows[i].prev_x = x;
-            windows[i].prev_y = y;
-            windows[i].prev_width = width;
-            windows[i].prev_height = height;
+    for (i = 0; i < nc; i++) {
+        if (clients[i].is_floating) {
+            XMoveResizeWindow(dpy, clients[i].win, 
+                              clients[i].x, clients[i].y, 
+                              clients[i].w, clients[i].h);
+            XSetWindowBorderWidth(dpy, clients[i].win, borderpx);
         }
     }
+
+    XRaiseWindow(dpy, clients[focus].win);
 }
 
-static void scroll_viewport(int dx, int dy) {
-    viewport_x += dx;
-    viewport_y += dy;
-    update_window_positions();
-}
-
-static void move(Window win) {
-    if (XRaiseWindow(dpy, win) == BadWindow) return;
-    if (XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask,
-                     GrabModeAsync, GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
-        return;
-    int start_x = ev.xbutton.x_root;
-    int start_y = ev.xbutton.y_root;
-    WindowInfo *wi = NULL;
-    for (int i = 0; i < window_count; i++) {
-        if (windows[i].win == win) {
-            wi = &windows[i];
-            break;
+static void toggle_float(void) {
+    if (focus < nc) {
+        clients[focus].is_floating = !clients[focus].is_floating;
+        if (clients[focus].is_floating) {
+            Window returned_root;
+            int x, y;
+            unsigned int width, height, border_width, depth;
+            XGetGeometry(dpy, clients[focus].win, &returned_root, &x, &y,
+                         &width, &height, &border_width, &depth);
+            
+            int sw = DisplayWidth(dpy, DefaultScreen(dpy));
+            int sh = DisplayHeight(dpy, DefaultScreen(dpy));
+            
+            width = sw * 2 / 3;
+            height = sh * 2 / 3;
+            x = (sw - width) / 2;
+            y = (sh - height) / 2;
+            
+            clients[focus].x = x;
+            clients[focus].y = y;
+            clients[focus].w = width;
+            clients[focus].h = height;
         }
+        tile();
     }
-    if (!wi) {
-        XUngrabPointer(dpy, CurrentTime);
-        return;
-    }
-    XEvent new_ev;
-    while (1) {
-        XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &new_ev);
-        if (new_ev.type == MotionNotify) {
-            while (XCheckTypedEvent(dpy, MotionNotify, &new_ev));
-            double xdiff = (new_ev.xmotion.x_root - start_x) / zoom_level;
-            double ydiff = (new_ev.xmotion.y_root - start_y) / zoom_level;
-            wi->x += xdiff;
-            wi->y += ydiff;
-            XMoveWindow(dpy, win, (wi->x - viewport_x) * zoom_level, (wi->y - viewport_y) * zoom_level);
-            start_x = new_ev.xmotion.x_root;
-            start_y = new_ev.xmotion.y_root;
-        } else if (new_ev.type == ButtonRelease) {
-            break;
-        }
-    }
-    XUngrabPointer(dpy, CurrentTime);
 }
 
-static void resize(Window win) {
-    if (XRaiseWindow(dpy, win) == BadWindow) return;
-    if (XGrabPointer(dpy, win, True, PointerMotionMask | ButtonReleaseMask,
-                     GrabModeAsync, GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
-        return;
+static void move_resize(XEvent *ev) {
+    if (focus >= nc || !clients[focus].is_floating) return;
 
+    XButtonEvent start = ev->xbutton;
     XWindowAttributes wa;
-    if (!XGetWindowAttributes(dpy, win, &wa)) {
+    XGetWindowAttributes(dpy, clients[focus].win, &wa);
+
+    int mode = ev->xbutton.button == 1 ? 1 : 2;
+
+    if (mode == 1) {
+        int xdiff, ydiff;
+        XGrabPointer(dpy, root, True, PointerMotionMask | ButtonReleaseMask,
+                     GrabModeAsync, GrabModeAsync, None, XCreateFontCursor(dpy, XC_fleur), CurrentTime);
+        do {
+            XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, ev);
+            if (ev->type == MotionNotify) {
+                xdiff = ev->xbutton.x_root - start.x_root;
+                ydiff = ev->xbutton.y_root - start.y_root;
+                clients[focus].x = wa.x + xdiff;
+                clients[focus].y = wa.y + ydiff;
+                XMoveWindow(dpy, clients[focus].win, clients[focus].x, clients[focus].y);
+            }
+        } while (ev->type != ButtonRelease);
         XUngrabPointer(dpy, CurrentTime);
-        return;
-    }
-
-    int start_x = ev.xbutton.x_root;
-    int start_y = ev.xbutton.y_root;
-    int orig_width = wa.width;
-    int orig_height = wa.height;
-
-    WindowInfo *wi = NULL;
-    for (int i = 0; i < window_count; i++) {
-        if (windows[i].win == win) {
-            wi = &windows[i];
-            break;
-        }
-    }
-    if (!wi) {
-        XUngrabPointer(dpy, CurrentTime);
-        return;
-    }
-
-    XEvent new_ev;
-    while (1) {
-        XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, &new_ev);
-        if (new_ev.type == MotionNotify) {
-            while (XCheckTypedEvent(dpy, MotionNotify, &new_ev));
-            int xdiff = new_ev.xmotion.x_root - start_x;
-            int ydiff = new_ev.xmotion.y_root - start_y;
-            int new_width = MAX(MIN_WINDOW_WIDTH, orig_width + xdiff / zoom_level);
-            int new_height = MAX(MIN_WINDOW_HEIGHT, orig_height + ydiff / zoom_level);
-            wi->width = new_width;
-            wi->height = new_height;
-            XResizeWindow(dpy, win, new_width * zoom_level, new_height * zoom_level);
-        } else if (new_ev.type == ButtonRelease) {
-            break;
-        }
-    }
-    XUngrabPointer(dpy, CurrentTime);
-}
-
-static void map_request(XMapRequestEvent *ev) {
-    XWindowAttributes wa;
-    if (!XGetWindowAttributes(dpy, ev->window, &wa) || wa.override_redirect) return;
-    int width = MAX(wa.width, MIN_WINDOW_WIDTH);
-    int height = MAX(wa.height, MIN_WINDOW_HEIGHT);
-    int x = viewport_x + (sw - width) / 2;
-    int y = viewport_y + (sh - height) / 2;
-    XMoveResizeWindow(dpy, ev->window, (x - viewport_x) * zoom_level, (y - viewport_y) * zoom_level, width * zoom_level, height * zoom_level);
-    XMapWindow(dpy, ev->window);
-    add_window(ev->window, x, y, width, height);
-    focus(ev->window);
-}
-
-static void toggle_zoom() {
-    if (is_zoomed) {
-        zoom_level = 1.0;
-        viewport_x = original_viewport_x;
-        viewport_y = original_viewport_y;
     } else {
-        original_viewport_x = viewport_x;
-        original_viewport_y = viewport_y;
-        if (window_count == 0) return;
-        int min_x = windows[0].x, max_x = windows[0].x + windows[0].width;
-        int min_y = windows[0].y, max_y = windows[0].y + windows[0].height;
-        for (int i = 1; i < window_count; i++) {
-            min_x = MIN(min_x, windows[i].x);
-            max_x = MAX(max_x, windows[i].x + windows[i].width);
-            min_y = MIN(min_y, windows[i].y);
-            max_y = MAX(max_y, windows[i].y + windows[i].height);
-        }
-        int canvas_width = max_x - min_x;
-        int canvas_height = max_y - min_y;
-        zoom_level = MIN((double)sw / canvas_width, (double)sh / canvas_height) * ZOOM_FACTOR;
-        viewport_x = min_x - (sw / zoom_level - canvas_width) / 2;
-        viewport_y = min_y - (sh / zoom_level - canvas_height) / 2;
+        int xdiff, ydiff;
+        XGrabPointer(dpy, root, True, PointerMotionMask | ButtonReleaseMask,
+                     GrabModeAsync, GrabModeAsync, None, XCreateFontCursor(dpy, XC_sizing), CurrentTime);
+        do {
+            XMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask, ev);
+            if (ev->type == MotionNotify) {
+                xdiff = ev->xbutton.x_root - start.x_root;
+                ydiff = ev->xbutton.y_root - start.y_root;
+                clients[focus].w = MAX(1, wa.width + xdiff);
+                clients[focus].h = MAX(1, wa.height + ydiff);
+                XResizeWindow(dpy, clients[focus].win, clients[focus].w, clients[focus].h);
+            }
+        } while (ev->type != ButtonRelease);
+        XUngrabPointer(dpy, CurrentTime);
     }
-    is_zoomed = !is_zoomed;
-    update_window_positions();
 }
 
-static void key_press(XKeyEvent *ev) {
-    if (ev->state & Mod4Mask) {
-        KeySym ks = XkbKeycodeToKeysym(dpy, ev->keycode, 0, 0);
-        if (ks == XK_q && ev->subwindow != None) {
-            Atom wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-            XEvent msg;
-            memset(&msg, 0, sizeof(msg));
-            msg.xclient.type = ClientMessage;
-            msg.xclient.message_type = XInternAtom(dpy, "WM_PROTOCOLS", True);
-            msg.xclient.window = ev->subwindow;
-            msg.xclient.format = 32;
-            msg.xclient.data.l[0] = wmDeleteMessage;
-            msg.xclient.data.l[1] = CurrentTime;
-            XSendEvent(dpy, ev->subwindow, False, NoEventMask, &msg);
-        } else if (ks == XK_space) {
-            toggle_zoom();
-        } else if (ev->state & ShiftMask) {
-            if (ks == XK_Left) scroll_viewport(-SCROLL_STEP / zoom_level, 0);
-            else if (ks == XK_Right) scroll_viewport(SCROLL_STEP / zoom_level, 0);
-        }
+static void kill_client(void) {
+    if (focus < nc) {
+        XEvent ev = {.type = ClientMessage};
+        ev.xclient.window = clients[focus].win;
+        ev.xclient.message_type = XInternAtom(dpy, "WM_PROTOCOLS", False);
+        ev.xclient.format = 32;
+        ev.xclient.data.l[0] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+        ev.xclient.data.l[1] = CurrentTime;
+        XSendEvent(dpy, clients[focus].win, False, NoEventMask, &ev);
     }
 }
 
 int main(void) {
-    if (!(dpy = XOpenDisplay(NULL))) return 1;
-    screen = DefaultScreen(dpy);
-    root = RootWindow(dpy, screen);
-    sw = DisplayWidth(dpy, screen);
-    sh = DisplayHeight(dpy, screen);
+    XEvent ev;
+    XSetWindowAttributes wa = {
+        .event_mask = SubstructureRedirectMask | SubstructureNotifyMask | 
+                      ButtonPressMask | EnterWindowMask
+    };
 
-    setup_ewmh();
+    if (!(dpy = XOpenDisplay(0))) return 1;
+    root = DefaultRootWindow(dpy);
+    XChangeWindowAttributes(dpy, root, CWEventMask, &wa);
+    XSelectInput(dpy, root, wa.event_mask);
 
-    XSelectInput(dpy, root, SubstructureRedirectMask | SubstructureNotifyMask | KeyPressMask);
-    XGrabButton(dpy, 1, Mod4Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
-    XGrabButton(dpy, 3, Mod4Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
     XGrabKey(dpy, XKeysymToKeycode(dpy, XK_q), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Left), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Right), Mod4Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_space), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
-
-    printf("rude: window manager with infinite canvas started\n");
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Tab), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Tab), Mod4Mask|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_f), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabButton(dpy, Button1, Mod4Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(dpy, Button3, Mod4Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
 
     for (;;) {
         XNextEvent(dpy, &ev);
-        switch (ev.type) {
-            case MapRequest: map_request(&ev.xmaprequest); break;
-            case ButtonPress:
-                if (ev.xbutton.subwindow != None) {
-                    focus(ev.xbutton.subwindow);
-                    if (ev.xbutton.button == 1) move(ev.xbutton.subwindow);
-                    else if (ev.xbutton.button == 3) resize(ev.xbutton.subwindow);
+        if (ev.type == MapRequest) {
+            if (nc < LENGTH(clients)) {
+                clients[nc].win = ev.xmaprequest.window;
+                clients[nc].is_floating = 0;
+                XSetWindowBorderWidth(dpy, clients[nc].win, borderpx);
+                XMoveResizeWindow(dpy, clients[nc].win, -1, -1, 1, 1);
+                XMapWindow(dpy, clients[nc].win);
+                focus_client(nc);
+                nc++;
+                tile();
+            }
+        } else if (ev.type == UnmapNotify) {
+            for (unsigned int i = 0; i < nc; i++)
+                if (clients[i].win == ev.xunmap.window) {
+                    for (unsigned int j = i; j < nc - 1; j++)
+                        clients[j] = clients[j + 1];
+                    if (--nc > 0) {
+                        focus = MIN(focus, nc - 1);
+                        focus_client(focus);
+                        tile();
+                    }
+                    break;
                 }
-                break;
-            case KeyPress: key_press(&ev.xkey); break;
-            case EnterNotify: focus(ev.xcrossing.window); break;
-            case DestroyNotify: remove_window(ev.xdestroywindow.window); break;
+        } else if (ev.type == KeyPress) {
+            if (ev.xkey.keycode == XKeysymToKeycode(dpy, XK_q) && ev.xkey.state & Mod4Mask)
+                kill_client();
+            else if (ev.xkey.keycode == XKeysymToKeycode(dpy, XK_Tab) && ev.xkey.state & Mod4Mask)
+                focus_client((ev.xkey.state & ShiftMask) ? (focus - 1 + nc) % nc : (focus + 1) % nc);
+            else if (ev.xkey.keycode == XKeysymToKeycode(dpy, XK_f) && ev.xkey.state & Mod4Mask)
+                toggle_float();
+        } else if (ev.type == ButtonPress) {
+            for (unsigned int i = 0; i < nc; i++)
+                if (clients[i].win == ev.xbutton.subwindow) {
+                    focus_client(i);
+                    if (clients[i].is_floating && ev.xbutton.state & Mod4Mask)
+                        move_resize(&ev);
+                    break;
+                }
+        } else if (ev.type == EnterNotify) {
+            for (unsigned int i = 0; i < nc; i++)
+                if (clients[i].win == ev.xcrossing.window) {
+                    focus_client(i);
+                    break;
+                }
         }
     }
-    XCloseDisplay(dpy);
-    return 0;
 }
