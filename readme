@@ -3,11 +3,8 @@
                  <https://github.com/getjared/rude>
 
 features:
-• minimalist floating window manager for x11
-• written in c with minimal dependencies
+• floating & tile
 • lightweight and fast
-• completely endless canvas
-• ewmh compliant
 
 see ./makefile for a easy installation
 
@@ -29,11 +26,11 @@ sudo make install
 § quick-start
 
 key bindings:
-• mod4 + left click: move window
-• mod4 + right click: resize window
-• mod4 + q: close focused window
-• mod4 + space: toggle zoom mode
-• mod4 + shift + left/right: scroll viewport
+mod4 + left click: move window
+mod4 + right click: resize window
+mod4 + q: close focused window
+mod4 + f: toggle float mode
+mod4 + tab: cycle focus
 
 configuration:
 rude is designed to be simple and minimalist. configuration is done by modifying the source code and recompiling.
