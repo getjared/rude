@@ -164,7 +164,7 @@ int main(void) {
     XEvent ev;
     XSetWindowAttributes wa = {
         .event_mask = SubstructureRedirectMask | SubstructureNotifyMask | 
-                      ButtonPressMask | EnterWindowMask
+                      ButtonPressMask | PointerMotionMask | EnterWindowMask
     };
 
     if (!(dpy = XOpenDisplay(0))) return 1;
@@ -188,6 +188,7 @@ int main(void) {
                 XSetWindowBorderWidth(dpy, clients[nc].win, borderpx);
                 XMoveResizeWindow(dpy, clients[nc].win, -1, -1, 1, 1);
                 XMapWindow(dpy, clients[nc].win);
+                XSelectInput(dpy, clients[nc].win, EnterWindowMask);
                 focus_client(nc);
                 nc++;
                 tile();
@@ -212,13 +213,15 @@ int main(void) {
             else if (ev.xkey.keycode == XKeysymToKeycode(dpy, XK_f) && ev.xkey.state & Mod4Mask)
                 toggle_float();
         } else if (ev.type == ButtonPress) {
-            for (unsigned int i = 0; i < nc; i++)
-                if (clients[i].win == ev.xbutton.subwindow) {
-                    focus_client(i);
-                    if (clients[i].is_floating && ev.xbutton.state & Mod4Mask)
-                        move_resize(&ev);
-                    break;
-                }
+            if (ev.xbutton.subwindow != None) {
+                for (unsigned int i = 0; i < nc; i++)
+                    if (clients[i].win == ev.xbutton.subwindow) {
+                        focus_client(i);
+                        if (clients[i].is_floating && ev.xbutton.state & Mod4Mask)
+                            move_resize(&ev);
+                        break;
+                    }
+            }
         } else if (ev.type == EnterNotify) {
             for (unsigned int i = 0; i < nc; i++)
                 if (clients[i].win == ev.xcrossing.window) {
