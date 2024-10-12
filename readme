@@ -34,6 +34,7 @@ mod4 + tab: cycle focus
 
 configuration:
 rude is designed to be simple and minimalist. configuration is done by modifying the source code and recompiling.
+use sxhkd or something similar for basic keybinds, like opening a terminal.
 
 launching rude:
 add the following line to your ~/.xinitrc file:
