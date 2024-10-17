@@ -26,7 +26,7 @@ sudo make install
 § quick-start
 
 key bindings:
-mod4 + space               : change workspace
+mod4 + 1-9                 : change workspace
 mod4 + q                   : kill focus window
 mod4 + left/right          : move windows around
 mod4 + shift + left/right  : resize master window
