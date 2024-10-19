@@ -1,81 +1,47 @@
-# § rude.c
 
-rude is a minimalist, lightweight floating window manager for x11.
+                              rude.c
+                 <https://github.com/getjared/rude>
 
-## § features
+features:
+• floating only
+• lightweight and fast
 
-• floating only window management
-
-• super lightweight and fast
-
-• simple and hackable codebase
-
-• perfect for minimalists and tinkerers
-
-## § dependencies
-
-• c compiler (gcc or clang)
-
-• make
-
-• x11 libraries and headers (xlib)
-
-## § installation
-
-1. clone the repository:
-   ```
-   git clone https://github.com/getjared/rude.git
-   ```
-2. change to the rude directory:
-   ```
-   cd rude
-   ```
-3. compile the source:
-   ```
-   make
-   ```
-4. install (requires root privileges):
-   ```
-   sudo make install
-   ```
-
-## § usage
-
-key bindings:
-
-• super + q: kill focused window
-
-• super + left mouse button: move window
-
-• super + right mouse button: resize window
-
-starting rude:
-add the following line to your ~/.xinitrc file:
-```
-exec rude
-```
-then start x with:
-```
-startx
-```
-
-## § configuration
-
-rude is designed to be simple and minimalist. configuration is done by modifying the source code and recompiling.
-
-use something like sxhkd.
+see ./makefile for a easy installation
 
 
-after making changes, recompile and reinstall:
-```
+§ installation
+
+git clone https://github.com/getjared/rude.git
+cd rude
 make
 sudo make install
-```
 
-## § acknowledgements
+§ dependencies
 
-rude draws inspiration from other minimal window managers like sowm and dwm.
+• c compiler (gcc or clang)
+• make
+• x11 libraries and headers (xlib)
 
----
 
-remember: rude is intentionally minimalist and lightweight. it's designed as a personal daily driver for those who appreciate simplicity.
+§ quick-start
+
+key bindings:
+mod4 + q                   : kill focus window
+mod4 + mouse               : move windows around
+
+configuration:
+rude is designed to be simple and minimalist. configuration is done by modifying the source code and recompiling.
+use sxhkd or something similar for basic keybinds, like opening a terminal.
+
+launching rude:
+add the following line to your ~/.xinitrc file:
+    exec rude
+
+then start x with:
+    startx
+
+
+§ extra
+
+keep in mind that rude is intended to remain minimalist and lightweight, it's my personal daily driver
+that i have made from scratch with of course inspiration from sowm & dwm.
