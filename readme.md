@@ -5,11 +5,8 @@ rude is a minimalist, lightweight floating window manager for x11.
 ## § features
 
 • floating only window management
-
 • super lightweight and fast
-
 • simple and hackable codebase
-
 • perfect for minimalists and tinkerers
 
 ## § dependencies
@@ -42,6 +39,7 @@ rude is a minimalist, lightweight floating window manager for x11.
 ## § usage
 
 key bindings:
+
 • super + q: kill focused window
 
 • super + left mouse button: move window
