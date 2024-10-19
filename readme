@@ -3,7 +3,7 @@
                  <https://github.com/getjared/rude>
 
 features:
-• master-stack tiles
+• floating only
 • lightweight and fast
 
 see ./makefile for a easy installation
@@ -26,10 +26,8 @@ sudo make install
 § quick-start
 
 key bindings:
-mod4 + 1-9                 : change workspace
 mod4 + q                   : kill focus window
-mod4 + left/right          : move windows around
-mod4 + shift + left/right  : resize master window
+mod4 + mouse               : move windows around
 
 configuration:
 rude is designed to be simple and minimalist. configuration is done by modifying the source code and recompiling.
@@ -43,10 +41,8 @@ then start x with:
     startx
 
 
-§ contributing
+§ extra
 
-feedback, bug reports, and pull requests are welcome.
-please use the github issue tracker for bug reports and feature requests.
-
-keep in mind that rude is intended to remain minimalist and lightweight.
+keep in mind that rude is intended to remain minimalist and lightweight, it's my personal daily driver
+that i have made from scratch with of course inspiration from sowm & dwm.
 
