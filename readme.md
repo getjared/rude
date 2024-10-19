@@ -15,7 +15,9 @@ rude is a minimalist, lightweight floating window manager for x11.
 ## § dependencies
 
 • c compiler (gcc or clang)
+
 • make
+
 • x11 libraries and headers (xlib)
 
 ## § installation
@@ -41,7 +43,9 @@ rude is a minimalist, lightweight floating window manager for x11.
 
 key bindings:
 • super + q: kill focused window
+
 • super + left mouse button: move window
+
 • super + right mouse button: resize window
 
 starting rude:
