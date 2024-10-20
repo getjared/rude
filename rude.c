@@ -9,10 +9,12 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <sys/time.h>
 
 #define SUPER Mod4Mask
 #define MIN_WINDOW_SIZE 100
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define RESIZE_THROTTLE_MS 50
 
 typedef struct {
     int x, y;
@@ -90,31 +92,6 @@ static void handle_map_request(XMapRequestEvent *ev) {
     set_active_window(ev->window);
 }
 
-static void handle_button_press(XButtonEvent *ev, Point *start, Window *drag_window, int *dragging, int *resizing) {
-    if (ev->subwindow != None && (ev->state & SUPER)) {
-        XWindowAttributes attr;
-        XGetWindowAttributes(display, ev->subwindow, &attr);
-        start->x = ev->x_root - attr.x;
-        start->y = ev->y_root - attr.y;
-        *drag_window = ev->subwindow;
-        
-        *dragging = (ev->button == Button1);
-        *resizing = (ev->button == Button3);
-    }
-}
-
-static void handle_motion_notify(XMotionEvent *ev, Point *start, Window drag_window, int dragging, int resizing) {
-    if (dragging) {
-        XMoveWindow(display, drag_window, ev->x_root - start->x, ev->y_root - start->y);
-    } else if (resizing) {
-        XWindowAttributes attr;
-        XGetWindowAttributes(display, drag_window, &attr);
-        int new_width = MAX(ev->x_root - attr.x, MIN_WINDOW_SIZE);
-        int new_height = MAX(ev->y_root - attr.y, MIN_WINDOW_SIZE);
-        XResizeWindow(display, drag_window, new_width, new_height);
-    }
-}
-
 static void kill_window(Window w) {
     Atom *protocols;
     int n;
@@ -135,7 +112,6 @@ static void kill_window(Window w) {
         }
         XFree(protocols);
     }
-    
     XKillClient(display, w);
 }
 
@@ -183,6 +159,10 @@ int main() {
     int dragging = 0;
     int resizing = 0;
 
+    struct timeval last_resize_time = {0};
+    static int last_rect_x = 0, last_rect_y = 0, last_rect_width = 0, last_rect_height = 0;
+    static GC xor_gc;
+
     signal(SIGCHLD, sigchld_handler);
 
     display = XOpenDisplay(NULL);
@@ -197,6 +177,13 @@ int main() {
     root = RootWindow(display, screen);
     screen_width = DisplayWidth(display, screen);
     screen_height = DisplayHeight(display, screen);
+
+    XGCValues values;
+    values.function = GXxor;
+    values.foreground = WhitePixel(display, screen) ^ BlackPixel(display, screen);
+    values.background = 0;
+    values.subwindow_mode = IncludeInferiors;
+    xor_gc = XCreateGC(display, root, GCFunction | GCForeground | GCBackground | GCSubwindowMode, &values);
 
     setup_ewmh();
 
@@ -225,12 +212,68 @@ int main() {
                 }
                 break;
             case ButtonPress:
-                handle_button_press(&ev.xbutton, &start, &drag_window, &dragging, &resizing);
+                if (ev.xbutton.subwindow != None && (ev.xbutton.state & SUPER)) {
+                    XWindowAttributes attr;
+                    XGetWindowAttributes(display, ev.xbutton.subwindow, &attr);
+                    start.x = ev.xbutton.x_root - attr.x;
+                    start.y = ev.xbutton.y_root - attr.y;
+                    drag_window = ev.xbutton.subwindow;
+
+                    if (ev.xbutton.button == Button1) {
+                        dragging = 1;
+                    } else if (ev.xbutton.button == Button3) {
+                        resizing = 1;
+                        last_rect_width = last_rect_height = 0;
+                    }
+                }
                 break;
             case MotionNotify:
-                handle_motion_notify(&ev.xmotion, &start, drag_window, dragging, resizing);
+                while (XCheckTypedEvent(display, MotionNotify, &ev));
+                if (dragging) {
+                    int x = ev.xmotion.x_root - start.x;
+                    int y = ev.xmotion.y_root - start.y;
+                    XWindowAttributes attr;
+                    XGetWindowAttributes(display, drag_window, &attr);
+                    XMoveResizeWindow(display, drag_window, x, y, attr.width, attr.height);
+                    XFlush(display);
+                } else if (resizing) {
+                    struct timeval now;
+                    gettimeofday(&now, NULL);
+                    long elapsed_ms = (now.tv_sec - last_resize_time.tv_sec) * 1000 + (now.tv_usec - last_resize_time.tv_usec) / 1000;
+                    if (elapsed_ms < RESIZE_THROTTLE_MS) {
+                        break;
+                    }
+                    last_resize_time = now;
+
+                    XWindowAttributes attr;
+                    XGetWindowAttributes(display, drag_window, &attr);
+
+                    int new_width = MAX(ev.xmotion.x_root - attr.x, MIN_WINDOW_SIZE);
+                    int new_height = MAX(ev.xmotion.y_root - attr.y, MIN_WINDOW_SIZE);
+
+                    if (last_rect_width != 0 && last_rect_height != 0) {
+                        XDrawRectangle(display, root, xor_gc, last_rect_x, last_rect_y, last_rect_width - 1, last_rect_height - 1);
+                    }
+
+                    last_rect_x = attr.x;
+                    last_rect_y = attr.y;
+                    last_rect_width = new_width;
+                    last_rect_height = new_height;
+
+                    XDrawRectangle(display, root, xor_gc, last_rect_x, last_rect_y, last_rect_width - 1, last_rect_height - 1);
+                    XFlush(display);
+                }
                 break;
             case ButtonRelease:
+                if (resizing) {
+                    if (last_rect_width != 0 && last_rect_height != 0) {
+                        XDrawRectangle(display, root, xor_gc, last_rect_x, last_rect_y, last_rect_width - 1, last_rect_height - 1);
+                        XFlush(display);
+                    }
+                    XMoveResizeWindow(display, drag_window, last_rect_x, last_rect_y, last_rect_width, last_rect_height);
+                    last_rect_width = last_rect_height = 0;
+                    XFlush(display);
+                }
                 dragging = resizing = 0;
                 break;
             case KeyPress:
@@ -246,7 +289,7 @@ int main() {
                 focus_next_window();
                 break;
             case ClientMessage:
-                if (ev.xclient.message_type == wm_protocols && 
+                if (ev.xclient.message_type == wm_protocols &&
                     (Atom)ev.xclient.data.l[0] == wm_delete_window) {
                     kill_window(ev.xclient.window);
                     focus_next_window();
