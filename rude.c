@@ -32,6 +32,11 @@ static int screen;
 static int screen_width;
 static int screen_height;
 
+static struct {
+    XButtonEvent start;
+    XWindowAttributes attr;
+} ev_cache;
+
 static Atom net_supported;
 static Atom net_wm_name;
 static Atom net_active_window;
@@ -314,12 +319,9 @@ static void sigchld_handler(int sig) {
 
 int main(void) {
     XEvent ev;
-    Point start = {0, 0};
     Window drag_window = None;
-    int dragging = 0;
-    int resizing = 0;
-    struct timeval last_resize_time = {0};
-    int last_rect_x = 0, last_rect_y = 0, last_rect_width = 0, last_rect_height = 0;
+    int dragging = 0, resizing = 0;
+    struct timeval last_resize = {0};
 
     signal(SIGCHLD, sigchld_handler);
     initialize();
@@ -327,12 +329,39 @@ int main(void) {
 
     while (1) {
         XNextEvent(display, &ev);
-        if (XFilterEvent(&ev, None))
-            continue;
+        if (XFilterEvent(&ev, None)) continue;
 
         switch (ev.type) {
             case MapRequest:
-                handle_map_request(&ev.xmaprequest);
+                XWindowAttributes attr;
+                XGetWindowAttributes(display, ev.xmaprequest.window, &attr);
+                XSizeHints hints;
+                long supplied;
+                
+                if (!XGetWMNormalHints(display, ev.xmaprequest.window, &hints, &supplied)) {
+                    hints.flags = 0;
+                }
+                
+                int width = (hints.flags & PSize) ? hints.width : MAX(attr.width, MIN_WINDOW_SIZE);
+                int height = (hints.flags & PSize) ? hints.height : MAX(attr.height, MIN_WINDOW_SIZE);
+                
+                if (hints.flags & PMinSize) {
+                    width = MAX(width, hints.min_width);
+                    height = MAX(height, hints.min_height);
+                }
+                
+                int x = (screen_width - width) / 2;
+                int y = (screen_height - height) / 2;
+                constrain_to_screen(&x, &y, width, height);
+                
+                XMoveResizeWindow(display, ev.xmaprequest.window, x, y, width, height);
+                XSetWindowBorderWidth(display, ev.xmaprequest.window, 1);
+                XSelectInput(display, ev.xmaprequest.window, EnterWindowMask | StructureNotifyMask);
+                XMapWindow(display, ev.xmaprequest.window);
+                XSetInputFocus(display, ev.xmaprequest.window, RevertToPointerRoot, CurrentTime);
+                add_window(ev.xmaprequest.window, 0);
+                raise_window(ev.xmaprequest.window);
+                set_active_window(ev.xmaprequest.window);
                 break;
 
             case EnterNotify:
@@ -344,87 +373,44 @@ int main(void) {
                 break;
 
             case ButtonPress:
-                if (ev.xbutton.subwindow != None && (ev.xbutton.state & SUPER)) {
-                    XWindowAttributes attr;
-                    XGetWindowAttributes(display, ev.xbutton.subwindow, &attr);
-                    start.x = ev.xbutton.x_root - attr.x;
-                    start.y = ev.xbutton.y_root - attr.y;
+                if (ev.xbutton.subwindow && (ev.xbutton.state & SUPER)) {
+                    XGetWindowAttributes(display, ev.xbutton.subwindow, &ev_cache.attr);
                     drag_window = ev.xbutton.subwindow;
-
-                    if (ev.xbutton.button == Button1) {
-                        dragging = 1;
-                    } else if (ev.xbutton.button == Button3) {
-                        resizing = 1;
-                        last_rect_width = last_rect_height = 0;
-                    }
+                    ev_cache.start = ev.xbutton;
+                    dragging = (ev.xbutton.button == Button1);
+                    resizing = (ev.xbutton.button == Button3);
                 }
                 break;
 
             case MotionNotify:
-                while (XCheckTypedEvent(display, MotionNotify, &ev));
-
+                if (!dragging && !resizing) break;
+                while (XCheckTypedWindowEvent(display, drag_window, MotionNotify, &ev));
+                
                 if (dragging) {
-                    XWindowAttributes attr;
-                    XGetWindowAttributes(display, drag_window, &attr);
-                    
-                    int x = ev.xmotion.x_root - start.x;
-                    int y = ev.xmotion.y_root - start.y;
-                    
-                    constrain_to_screen(&x, &y, attr.width, attr.height);
+                    int x = ev.xmotion.x_root - (ev_cache.start.x_root - ev_cache.attr.x);
+                    int y = ev.xmotion.y_root - (ev_cache.start.y_root - ev_cache.attr.y);
+                    constrain_to_screen(&x, &y, ev_cache.attr.width, ev_cache.attr.height);
                     XMoveWindow(display, drag_window, x, y);
                 } else if (resizing) {
                     struct timeval now;
                     gettimeofday(&now, NULL);
-                    long elapsed_ms = (now.tv_sec - last_resize_time.tv_sec) * 1000 + 
-                                   (now.tv_usec - last_resize_time.tv_usec) / 1000;
-                    if (elapsed_ms < RESIZE_THROTTLE_MS) {
-                        break;
-                    }
-                    last_resize_time = now;
+                    if ((now.tv_sec - last_resize.tv_sec) * 1000 +
+                        (now.tv_usec - last_resize.tv_usec) / 1000 < 16) break;
+                    last_resize = now;
 
-                    XWindowAttributes attr;
-                    XGetWindowAttributes(display, drag_window, &attr);
-
-                    int new_width = MAX(ev.xmotion.x_root - attr.x, MIN_WINDOW_SIZE);
-                    int new_height = MAX(ev.xmotion.y_root - attr.y, MIN_WINDOW_SIZE);
+                    int width = MAX(ev.xmotion.x_root - ev_cache.attr.x, MIN_WINDOW_SIZE);
+                    int height = MAX(ev.xmotion.y_root - ev_cache.attr.y, MIN_WINDOW_SIZE);
                     
-                    if (attr.x + new_width > screen_width) {
-                        new_width = screen_width - attr.x;
-                    }
-                    if (attr.y + new_height > screen_height) {
-                        new_height = screen_height - attr.y;
-                    }
+                    if (ev_cache.attr.x + width > screen_width) width = screen_width - ev_cache.attr.x;
+                    if (ev_cache.attr.y + height > screen_height) height = screen_height - ev_cache.attr.y;
 
-                    new_width = MAX(new_width, MIN_WINDOW_SIZE);
-                    new_height = MAX(new_height, MIN_WINDOW_SIZE);
-
-                    if (last_rect_width != 0 && last_rect_height != 0) {
-                        XDrawRectangle(display, root, xor_gc, last_rect_x, last_rect_y,
-                                     last_rect_width - 1, last_rect_height - 1);
-                    }
-
-                    last_rect_x = attr.x;
-                    last_rect_y = attr.y;
-                    last_rect_width = new_width;
-                    last_rect_height = new_height;
-
-                    XDrawRectangle(display, root, xor_gc, last_rect_x, last_rect_y,
-                                 last_rect_width - 1, last_rect_height - 1);
+                    XResizeWindow(display, drag_window, width, height);
                 }
-                XFlush(display);
                 break;
 
             case ButtonRelease:
-                if (resizing) {
-                    if (last_rect_width != 0 && last_rect_height != 0) {
-                        XDrawRectangle(display, root, xor_gc, last_rect_x, last_rect_y,
-                                     last_rect_width - 1, last_rect_height - 1);
-                    }
-                    XResizeWindow(display, drag_window, last_rect_width, last_rect_height);
-                    last_rect_width = last_rect_height = 0;
-                }
+                drag_window = None;
                 dragging = resizing = 0;
-                XFlush(display);
                 break;
 
             case KeyPress:
@@ -442,18 +428,7 @@ int main(void) {
                 }
                 focus_next_window();
                 break;
-
-            case ClientMessage:
-                if (ev.xclient.message_type == wm_protocols &&
-                    (Atom)ev.xclient.data.l[0] == wm_delete_window) {
-                    kill_window(ev.xclient.window);
-                    focus_next_window();
-                }
-                break;
         }
     }
-
-    XFreeGC(display, xor_gc);
-    XCloseDisplay(display);
     return 0;
 }
