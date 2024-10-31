@@ -1,8 +1,8 @@
 <div align="center">
 <h6>
-```
+
 ｒｕｄｅ　（育科せ）
-```
+
 </h6>
 
 **[ a x11 floating wm ]**
