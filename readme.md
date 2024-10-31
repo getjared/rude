@@ -29,12 +29,18 @@
 rude is intentionally minimal. no borders, no bars, no distractions.
 just you and your windows floating in space.
 
+## ✧ preview
+
+<p align="center">
+    <img width="500" src="gifw-desk.gif" alt="thing">
+</p>
+
 ## ✧ features
 
 - 🪶 floating only
 - ⚡ lightweight and fast
 - 🎯 minimal dependencies
-- 🔧 simple configuration
+- 🔧 no config file
 
 ## ✧ installation
 
