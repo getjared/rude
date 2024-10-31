@@ -1,8 +1,9 @@
 <div align="center">
-
+<h6>
 ```ascii
-<h6>ｒｕｄｅ　（育科せ）</h6>
+ｒｕｄｅ　（育科せ）
 ```
+</h6>h6>
 
 **[ a x11 floating wm ]**
 
