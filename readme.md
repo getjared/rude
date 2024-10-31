@@ -1,6 +1,6 @@
 <div align="center">
 <h6>
-```ascii
+```
 ｒｕｄｅ　（育科せ）
 ```
 </h6>h6>
