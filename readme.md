@@ -1,7 +1,7 @@
 <div align="center">
 
 ```ascii
-ｒｕｄｅ　（育科せ）
+<h6>ｒｕｄｅ　（育科せ）</h6>
 ```
 
 **[ a x11 floating wm ]**
