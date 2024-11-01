@@ -18,7 +18,7 @@ just you and your windows floating in space.
 ## ✧ preview
 
 <p align="center">
-    <img width="500" src="gifw-desk.gif" alt="thing">
+    <img width="500" src="screenshot-11-1-24.png" alt="thing">
 </p>
 
 ## ✧ features
